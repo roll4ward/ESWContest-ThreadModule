@@ -8,4 +8,6 @@ target_sources(app PRIVATE
                     src/thread_net_config.c
                 )
 
+target_sources_ifdef(CONFIG_SHELL app PRIVATE src/thread_net_config_shell.c)
+
 include_directories(include)

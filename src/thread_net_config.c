@@ -8,14 +8,14 @@ static otError set_info_to_otInstance(network_info *info, otInstance *instance);
 otError commit_dataset(network_info *info) {
     otError err = OT_ERROR_NONE;
 
-    struct openthread_context* otContext = openthread_get_default_context();
-    openthread_api_mutex_lock(otContext);
-    otThreadSetEnabled(otContext->instance, false);
+    openthread_api_mutex_lock(openthread_get_default_context());
+    otThreadSetEnabled(openthread_get_default_instance(), false);
 
-    err = set_info_to_otInstance(otContext->instance, info);
+    err = set_info_to_otInstance(info, openthread_get_default_instance());
 
-    openthread_api_mutex_unlock(otContext);
-    openthread_start(otContext);
+    otThreadSetEnabled(openthread_get_default_instance(), true);
+
+    openthread_api_mutex_unlock(openthread_get_default_context());
 
     return err;
 }
