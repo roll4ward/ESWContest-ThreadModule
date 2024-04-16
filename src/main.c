@@ -1,11 +1,33 @@
 #include <zephyr/kernel.h>
 #include <zephyr/net/openthread.h>
+#include <zephyr/bluetooth/bluetooth.h>
+#ifdef CONFIG_LOG
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
+#endif
+
 
 #include "thread_net_config.h"
+#include "bluetooth_ad.h"
+
 int main(void)
 {
+        int err;
         struct openthread_context *otContext = openthread_get_default_context();
 
-        openthread_start(otContext);
+        err = openthread_start(otContext);
+        if (err < 0) {
+                LOG_ERR("Openthread Start Error");
+                return 0;
+        }
+
+        err = start_bt_advertise();
+        if(err < 0) {
+                LOG_ERR("Start Bluetooth Advertise Error : %d", err);
+                return 0;        
+        }
+
+        LOG_INF("Successfully started Bluetooth");
+
         return 0;
 }
