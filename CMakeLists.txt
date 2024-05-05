@@ -10,5 +10,6 @@ target_sources(app PRIVATE
 
 target_sources_ifdef(CONFIG_SHELL app PRIVATE src/thread_net_config_shell.c)
 target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_ad.c)
+target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_conn.c)
 
 include_directories(include)
