@@ -14,7 +14,7 @@ int main(void)
 {
         int err;
         uint32_t events;
-        extern struct k_event bt_button_press_event;
+        extern struct action_button bt_button;
 
         err = init_button_service();
         if (err < 0) {
@@ -24,7 +24,7 @@ int main(void)
 
         LOG_INF("button initialize finished. : %d", err);
         while (1){
-                events = k_event_wait(&bt_button_press_event, 
+                events = k_event_wait(&(bt_button.press_event), 
                                         BT_BUTTON_SHORT_PRESS | BT_BUTTON_LONG_PRESS,
                                         true, K_FOREVER);
 

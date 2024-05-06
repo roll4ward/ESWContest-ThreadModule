@@ -10,24 +10,19 @@
 
 LOG_MODULE_REGISTER(button, LOG_LEVEL_INF);
 
-static enum button_status {
-    released = 0,
-    pressed,
+struct action_button bt_button = {
+    .dt_spec= GPIO_DT_SPEC_GET(BT_BUTTON_NODE, gpios),
+    .press_status = released,
 };
 
 static struct k_work_q button_work_q;
-static struct k_work bt_button_work;
-static struct gpio_callback bt_button_cb;
-static struct gpio_dt_spec bt_button = GPIO_DT_SPEC_GET(BT_BUTTON_NODE, gpios);
-static enum button_status bt_button_status = released;
 
 K_THREAD_STACK_DEFINE(btn_work_stack, BTN_QUEUE_STACK_SIZE);
-K_EVENT_DEFINE(bt_button_press_event);
 
 static void init_work_q();
-static int init_bt_button();
+static int init_button(struct action_button *button); // 버튼별로
 
-static void bt_button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
+static void button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
 static void on_pressed();
 static void on_released();
 static void check_pressed_time(struct k_work *item);
@@ -36,7 +31,7 @@ static void check_pressed_time(struct k_work *item);
 int init_button_service() {
     int err;
     init_work_q();
-    err = init_bt_button();
+    err = init_button(&bt_button);
 
     return err;
 }
@@ -47,39 +42,42 @@ static void init_work_q() {
     k_work_queue_start(&button_work_q,
                        btn_work_stack, K_THREAD_STACK_SIZEOF(btn_work_stack),
                        BTN_WORKQUEUE_PRIORITY, NULL);
-
-    k_work_init(&bt_button_work, check_pressed_time);
 }
 
-static int init_bt_button() {
+static int init_button(struct action_button *button) {
     int ret;
 
-    if(!device_is_ready(bt_button.port)) return -ENOTSUP;
+    k_event_init(&(button->press_event));
+    k_work_init(&(button->work), check_pressed_time);
+
+    if(!device_is_ready(button->dt_spec.port)) return -ENOTSUP;
     LOG_INF("GPIO device is ready");
 
-    ret = gpio_pin_configure_dt(&bt_button, GPIO_INPUT);
+    ret = gpio_pin_configure_dt(&(button->dt_spec), GPIO_INPUT);
     if(ret < 0) return ret;
     LOG_INF("Button is setted as INPUT");
 
-    ret = gpio_pin_interrupt_configure_dt(&bt_button, GPIO_INT_EDGE_BOTH);
+    ret = gpio_pin_interrupt_configure_dt(&(button->dt_spec), GPIO_INT_EDGE_BOTH);
     if(ret < 0) return ret;
     LOG_INF("BOTH_EDGE interrupt is setted");
 
-    gpio_init_callback(&bt_button_cb, bt_button_isr, BIT(bt_button.pin));
+    gpio_init_callback(&(button->cb), button_isr, BIT(button->dt_spec.pin));
     LOG_INF("callback is initialized");
     
-    ret = gpio_add_callback(bt_button.port, &bt_button_cb);
+    ret = gpio_add_callback(button->dt_spec.port, &(button->cb));
     if(ret < 0) return ret;
     LOG_INF("callback is added");
 
     return 0;
 }
 
-
-void bt_button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pins_t pins) {
+// TODO: callback->pin을 기준으로 어떤 버튼인지 확인
+void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pins_t pins) {
     LOG_DBG("Button interrupt service routine");
-    bt_button_status = gpio_pin_get_dt(&bt_button);
-    switch (bt_button_status){
+    int pin_num = (int)LOG2(cb->pin_mask);
+
+    bt_button.press_status = gpio_pin_get(dt, pin_num);
+    switch (bt_button.press_status){
     case pressed:
         on_pressed();
         break;
@@ -91,13 +89,14 @@ void bt_button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_
     }
 }
 
+// 매개 변수로 버튼 추가하기
 static void on_pressed() {
-    LOG_DBG("button just pressed: %d", bt_button_status);
-    k_work_submit(&bt_button_work);
+    LOG_DBG("button just pressed: %d", bt_button.press_status);
+    k_work_submit(&(bt_button.work));
 }
 
 static void on_released() {
-    LOG_DBG("button just released: %d", bt_button_status);
+    LOG_DBG("button just released: %d", bt_button.press_status);
 }
 
 static void check_pressed_time(struct k_work *item) {
@@ -105,12 +104,12 @@ static void check_pressed_time(struct k_work *item) {
     for (;;) {
         uint32_t time_delta = ( k_uptime_get_32() - start_time);
         if (time_delta > LONG_PRESS_BOUNDARY_MS) {  // Long Press
-            k_event_set(&bt_button_press_event, BT_BUTTON_LONG_PRESS);
+            k_event_set(&(bt_button.press_event), BT_BUTTON_LONG_PRESS);
             return;
         }
 
-        else if (bt_button_status == released) {
-            k_event_set(&bt_button_press_event, BT_BUTTON_SHORT_PRESS);
+        else if (bt_button.press_status == released) {
+            k_event_set(&(bt_button.press_event), BT_BUTTON_SHORT_PRESS);
             return;
         }
     }
