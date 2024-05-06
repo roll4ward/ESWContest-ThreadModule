@@ -1,15 +1,14 @@
 #include "button.h"
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 
-#define     BTN_WORKQUEUE_PRIORITY                   5
+#define     BTN_WORKQUEUE_PRIORITY                   0
 #define     BTN_QUEUE_STACK_SIZE                     512
-#define     BT_BUTTON_NODE                           DT_ALIAS(bluetooth_button)
+#define     BT_BUTTON_NODE                           DT_ALIAS(sw0)
 #define     LONG_PRESS_BOUNDARY_MS                   1000LL
 
-#define     BT_BUTTON_RELEASE                        BIT(0)
-#define     BT_BUTTON_SHORT_PRESS                    BIT(1)
-#define     BT_BUTTON_LONG_PRESS                     BIT(2)
+LOG_MODULE_REGISTER(button, LOG_LEVEL_INF);
 
 static enum button_status {
     released = 0,
@@ -35,8 +34,11 @@ static void check_pressed_time(struct k_work *item);
 
 
 int init_button_service() {
+    int err;
     init_work_q();
-    init_bt_button();
+    err = init_bt_button();
+
+    return err;
 }
    
 
@@ -53,29 +55,36 @@ static int init_bt_button() {
     int ret;
 
     if(!device_is_ready(bt_button.port)) return -ENOTSUP;
+    LOG_INF("GPIO device is ready");
 
     ret = gpio_pin_configure_dt(&bt_button, GPIO_INPUT);
-    if(!ret) return ret;
+    if(ret < 0) return ret;
+    LOG_INF("Button is setted as INPUT");
 
     ret = gpio_pin_interrupt_configure_dt(&bt_button, GPIO_INT_EDGE_BOTH);
-    if(!ret) return ret;
+    if(ret < 0) return ret;
+    LOG_INF("BOTH_EDGE interrupt is setted");
 
     gpio_init_callback(&bt_button_cb, bt_button_isr, BIT(bt_button.pin));
+    LOG_INF("callback is initialized");
     
-    ret = gpio_add_callback_dt(&bt_button, &bt_button_cb);
-    if(!ret) return ret;
+    ret = gpio_add_callback(bt_button.port, &bt_button_cb);
+    if(ret < 0) return ret;
+    LOG_INF("callback is added");
 
     return 0;
 }
 
 
-void bt_button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins) {
+void bt_button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pins_t pins) {
+    LOG_DBG("Button interrupt service routine");
+    bt_button_status = gpio_pin_get_dt(&bt_button);
     switch (bt_button_status){
     case pressed:
-        on_released();
+        on_pressed();
         break;
     case released:
-        on_pressed();
+        on_released();
         break;
     default:
         break;
@@ -83,26 +92,26 @@ void bt_button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t p
 }
 
 static void on_pressed() {
-    bt_button_status = pressed;
+    LOG_DBG("button just pressed: %d", bt_button_status);
     k_work_submit(&bt_button_work);
 }
 
 static void on_released() {
-    bt_button_status = released;
-    k_event_set(&bt_button_press_event, BT_BUTTON_RELEASE);
+    LOG_DBG("button just released: %d", bt_button_status);
 }
 
 static void check_pressed_time(struct k_work *item) {
-    int64_t start_time = k_uptime_get();
+    uint32_t start_time = k_uptime_get_32();
     for (;;) {
-        int64_t time_delta = k_uptime_delta(&start_time);
+        uint32_t time_delta = ( k_uptime_get_32() - start_time);
         if (time_delta > LONG_PRESS_BOUNDARY_MS) {  // Long Press
             k_event_set(&bt_button_press_event, BT_BUTTON_LONG_PRESS);
             return;
         }
-        else if (bt_button_status == released) {  // Short Press
+
+        else if (bt_button_status == released) {
             k_event_set(&bt_button_press_event, BT_BUTTON_SHORT_PRESS);
-            return ;
+            return;
         }
     }
 }
