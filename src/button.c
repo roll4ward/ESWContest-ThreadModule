@@ -5,13 +5,19 @@
 
 #define     BTN_WORKQUEUE_PRIORITY                   0
 #define     BTN_QUEUE_STACK_SIZE                     512
-#define     BT_BUTTON_NODE                           DT_ALIAS(sw0)
+#define     BT_BUTTON_NODE                           DT_ALIAS(bluetooth_button)
+#define     DEVICE_BUTTON_NODE                       DT_ALIAS(device_button)
 #define     LONG_PRESS_BOUNDARY_MS                   1000LL
 
 LOG_MODULE_REGISTER(button, LOG_LEVEL_INF);
 
 struct action_button bt_button = {
     .dt_spec= GPIO_DT_SPEC_GET(BT_BUTTON_NODE, gpios),
+    .press_status = released,
+};
+
+struct action_button device_button = {
+    .dt_spec= GPIO_DT_SPEC_GET(DEVICE_BUTTON_NODE, gpios),
     .press_status = released,
 };
 
@@ -33,6 +39,7 @@ int init_button_service() {
     int err;
     init_work_q();
     err = init_button(&bt_button);
+    err = init_button(&device_button);
 
     return err;
 }
@@ -93,6 +100,7 @@ void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pin
 
 static struct action_button *select_button_by_pin(int pin_num) {
     if (pin_num == bt_button.dt_spec.pin) return &bt_button;
+    if (pin_num == device_button.dt_spec.pin) return &device_button;
     else return NULL;
 }
 
