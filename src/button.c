@@ -23,8 +23,9 @@ static void init_work_q();
 static int init_button(struct action_button *button); // 버튼별로
 
 static void button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
-static void on_pressed();
-static void on_released();
+static struct action_button *select_button_by_pin(int pin_num);
+static void on_pressed(struct action_button* button);
+static void on_released(struct action_button* button);
 static void check_pressed_time(struct k_work *item);
 
 
@@ -71,32 +72,35 @@ static int init_button(struct action_button *button) {
     return 0;
 }
 
-// TODO: callback->pin을 기준으로 어떤 버튼인지 확인
 void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pins_t pins) {
     LOG_DBG("Button interrupt service routine");
     int pin_num = (int)LOG2(cb->pin_mask);
+    struct action_button *button = &bt_button; // TODO: pin_num으로 action_button 선택하는 로직
 
-    bt_button.press_status = gpio_pin_get(dt, pin_num);
-    switch (bt_button.press_status){
+    button->press_status = gpio_pin_get(dt, pin_num);
+    switch (button->press_status){
     case pressed:
-        on_pressed();
+        on_pressed(button);
         break;
     case released:
-        on_released();
+        on_released(button);
         break;
     default:
         break;
     }
 }
 
-// 매개 변수로 버튼 추가하기
-static void on_pressed() {
-    LOG_DBG("button just pressed: %d", bt_button.press_status);
-    k_work_submit(&(bt_button.work));
+static struct action_button *select_button_by_pin(int pin_num) {
+    return NULL;
 }
 
-static void on_released() {
-    LOG_DBG("button just released: %d", bt_button.press_status);
+static void on_pressed(struct action_button* button) {
+    LOG_DBG("button just pressed: %d", button->press_status);
+    k_work_submit(&(button->work));
+}
+
+static void on_released(struct action_button* button) {
+    LOG_DBG("button just released: %d", button->press_status);
 }
 
 static void check_pressed_time(struct k_work *item) {
