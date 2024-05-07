@@ -1,0 +1,4 @@
+#ifdef ROLL4_BUTTON_UTIL_H
+#define ROLL4_BUTTON_UTIL_H
+
+#endif

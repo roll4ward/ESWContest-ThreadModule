@@ -20,7 +20,7 @@ static struct k_work_q button_work_q;
 K_THREAD_STACK_DEFINE(btn_work_stack, BTN_QUEUE_STACK_SIZE);
 
 static void init_work_q();
-static int init_button(struct action_button *button); // 버튼별로
+static int init_button(struct action_button *button);
 
 static void button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
 static struct action_button *select_button_by_pin(int pin_num);
@@ -75,7 +75,8 @@ static int init_button(struct action_button *button) {
 void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pins_t pins) {
     LOG_DBG("Button interrupt service routine");
     int pin_num = (int)LOG2(cb->pin_mask);
-    struct action_button *button = &bt_button; // TODO: pin_num으로 action_button 선택하는 로직
+    struct action_button *button;
+    if (!(button = select_button_by_pin(pin_num))) return;
 
     button->press_status = gpio_pin_get(dt, pin_num);
     switch (button->press_status){
@@ -91,7 +92,8 @@ void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pin
 }
 
 static struct action_button *select_button_by_pin(int pin_num) {
-    return NULL;
+    if (pin_num == bt_button.dt_spec.pin) return &bt_button;
+    else return NULL;
 }
 
 static void on_pressed(struct action_button* button) {

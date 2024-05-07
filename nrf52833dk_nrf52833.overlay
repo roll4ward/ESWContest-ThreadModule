@@ -14,5 +14,6 @@
 / {
     aliases {
         bluetooth-button = &button0;
+        device-button = &button1;
     };
 };
