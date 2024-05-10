@@ -56,7 +56,7 @@ static int init_button(struct action_button *button) {
     int ret;
 
     k_event_init(&(button->press_event));
-    k_work_init(&(button->work), check_pressed_time);
+    k_work_init(&(button->press_time_check_work), check_pressed_time);
 
     if(!device_is_ready(button->dt_spec.port)) return -ENOTSUP;
     LOG_INF("GPIO device is ready");
@@ -69,10 +69,10 @@ static int init_button(struct action_button *button) {
     if(ret < 0) return ret;
     LOG_INF("BOTH_EDGE interrupt is setted");
 
-    gpio_init_callback(&(button->cb), button_isr, BIT(button->dt_spec.pin));
+    gpio_init_callback(&(button->callback), button_isr, BIT(button->dt_spec.pin));
     LOG_INF("callback is initialized");
     
-    ret = gpio_add_callback(button->dt_spec.port, &(button->cb));
+    ret = gpio_add_callback(button->dt_spec.port, &(button->callback));
     if(ret < 0) return ret;
     LOG_INF("callback is added");
 
@@ -106,7 +106,7 @@ static struct action_button *select_button_by_pin(int pin_num) {
 
 static void on_pressed(struct action_button* button) {
     LOG_DBG("button just pressed: %d", button->press_status);
-    k_work_submit(&(button->work));
+    k_work_submit(&(button->press_time_check_work));
 }
 
 static void on_released(struct action_button* button) {

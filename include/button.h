@@ -13,8 +13,8 @@ enum button_status {
 };
 
 struct action_button{
-    struct k_work work;
-    struct gpio_callback cb;
+    struct k_work press_time_check_work;
+    struct gpio_callback callback;
     struct gpio_dt_spec dt_spec;
     enum button_status press_status;
     struct k_event press_event;
