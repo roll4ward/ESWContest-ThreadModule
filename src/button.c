@@ -99,9 +99,9 @@ void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pin
 }
 
 static struct action_button *select_button_by_pin(int pin_num) {
-    if (pin_num == bt_button.dt_spec.pin) return &bt_button;
-    if (pin_num == device_button.dt_spec.pin) return &device_button;
-    else return NULL;
+    if (pin_num == bt_button.dt_spec.pin)             return &bt_button;
+    else if (pin_num == device_button.dt_spec.pin)    return &device_button;
+    else                                              return NULL;
 }
 
 static void on_pressed(struct action_button* button) {
