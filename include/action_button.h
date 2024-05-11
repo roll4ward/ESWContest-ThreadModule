@@ -20,5 +20,5 @@ struct action_button{
     struct k_event press_event;
 };
 
-int init_button_service();
+int init_button(struct action_button *button);
 #endif

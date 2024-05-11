@@ -3,30 +3,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#define     BTN_WORKQUEUE_PRIORITY                   0
-#define     BTN_QUEUE_STACK_SIZE                     512
-#define     BT_BUTTON_NODE                           DT_ALIAS(bluetooth_button)
-#define     DEVICE_BUTTON_NODE                       DT_ALIAS(device_button)
 #define     LONG_PRESS_BOUNDARY_MS                   1000LL
 
 LOG_MODULE_REGISTER(button, LOG_LEVEL_INF);
-
-struct action_button bt_button = {
-    .dt_spec= GPIO_DT_SPEC_GET(BT_BUTTON_NODE, gpios),
-    .press_status = released,
-};
-
-struct action_button device_button = {
-    .dt_spec= GPIO_DT_SPEC_GET(DEVICE_BUTTON_NODE, gpios),
-    .press_status = released,
-};
-
-static struct k_work_q button_work_q;
-
-K_THREAD_STACK_DEFINE(btn_work_stack, BTN_QUEUE_STACK_SIZE);
-
-static void init_work_q();
-static int init_button(struct action_button *button);
 
 static void button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
 static struct action_button *select_button_by_pin(int pin_num);
@@ -34,25 +13,13 @@ static void on_pressed(struct action_button* button);
 static void on_released(struct action_button* button);
 static void check_pressed_time(struct k_work *item);
 
+// TEMP
+extern struct action_button bt_button;
+extern struct action_button device_button;
+// END TEMP
 
-int init_button_service() {
-    int err;
-    init_work_q();
-    err = init_button(&bt_button);
-    err = init_button(&device_button);
 
-    return err;
-}
-   
-
-static void init_work_q() {
-    k_work_queue_init(&button_work_q);
-    k_work_queue_start(&button_work_q,
-                       btn_work_stack, K_THREAD_STACK_SIZEOF(btn_work_stack),
-                       BTN_WORKQUEUE_PRIORITY, NULL);
-}
-
-static int init_button(struct action_button *button) {
+int init_button(struct action_button *button) {
     int ret;
 
     k_event_init(&(button->press_event));
@@ -115,15 +82,17 @@ static void on_released(struct action_button* button) {
 
 static void check_pressed_time(struct k_work *item) {
     uint32_t start_time = k_uptime_get_32();
+    struct action_button *button;
+    button = CONTAINER_OF(item, struct action_button, press_time_check_work);
     for (;;) {
         uint32_t time_delta = ( k_uptime_get_32() - start_time);
         if (time_delta > LONG_PRESS_BOUNDARY_MS) {  // Long Press
-            k_event_set(&(bt_button.press_event), BT_BUTTON_LONG_PRESS);
+            k_event_set(&(button->press_event), BT_BUTTON_LONG_PRESS);
             return;
         }
 
-        else if (bt_button.press_status == released) {
-            k_event_set(&(bt_button.press_event), BT_BUTTON_SHORT_PRESS);
+        else if (button->press_status == released) {
+            k_event_set(&(button->press_event), BT_BUTTON_SHORT_PRESS);
             return;
         }
     }
