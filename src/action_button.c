@@ -3,21 +3,16 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "button_service.h"
+
 #define     LONG_PRESS_BOUNDARY_MS                   1000LL
 
 LOG_MODULE_REGISTER(button, LOG_LEVEL_INF);
 
 static void button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
-static struct action_button *select_button_by_pin(int pin_num);
 static void on_pressed(struct action_button* button);
 static void on_released(struct action_button* button);
 static void check_pressed_time(struct k_work *item);
-
-// TEMP
-extern struct action_button bt_button;
-extern struct action_button device_button;
-// END TEMP
-
 
 int init_button(struct action_button *button) {
     int ret;
@@ -52,6 +47,7 @@ void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pin
     struct action_button *button;
     if (!(button = select_button_by_pin(pin_num))) return;
 
+    LOG_DBG("Select Pin Successful %d", button->dt_spec.pin);
     button->press_status = gpio_pin_get(dt, pin_num);
     switch (button->press_status){
     case pressed:
@@ -63,12 +59,6 @@ void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pin
     default:
         break;
     }
-}
-
-static struct action_button *select_button_by_pin(int pin_num) {
-    if (pin_num == bt_button.dt_spec.pin)             return &bt_button;
-    else if (pin_num == device_button.dt_spec.pin)    return &device_button;
-    else                                              return NULL;
 }
 
 static void on_pressed(struct action_button* button) {
@@ -84,6 +74,7 @@ static void check_pressed_time(struct k_work *item) {
     uint32_t start_time = k_uptime_get_32();
     struct action_button *button;
     button = CONTAINER_OF(item, struct action_button, press_time_check_work);
+    LOG_DBG("Check pressed time");
     for (;;) {
         uint32_t time_delta = ( k_uptime_get_32() - start_time);
         if (time_delta > LONG_PRESS_BOUNDARY_MS) {  // Long Press

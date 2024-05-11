@@ -27,6 +27,8 @@ static void init_work_q();
 void init_button_service() {
     init_work_q();
     sys_slist_init(&button_list);
+
+    button_service_ready = true;
 }
 
 static void init_work_q() {
@@ -48,5 +50,16 @@ int register_button(struct action_button *button) {
 
     if (err < 0) return err;
 
-    sys_sflist_append(&button_list, &(button->registry_node));
+    sys_slist_append(&button_list, &(button->registry_node));
+
+    return 0;
+}
+
+struct action_button *select_button_by_pin(int pin_num) {
+    struct action_button *button = NULL;
+    SYS_SLIST_FOR_EACH_CONTAINER(&button_list, button, registry_node) {
+        if ((button->dt_spec.pin) == pin_num) return button;
+    }
+
+    return NULL;
 }

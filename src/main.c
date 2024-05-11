@@ -17,17 +17,16 @@ int main(void)
         uint32_t events;
         extern struct action_button bt_button;
 
-        err = init_button_service();
-        if (err < 0) {
-                LOG_ERR("Button init failed. : %d", err);
-                return -1;
-        }
+        init_button_service();
+        register_button(&bt_button);
 
         LOG_INF("button initialize finished. : %d", err);
         while (1){
                 events = k_event_wait(&(bt_button.press_event), 
                                         BT_BUTTON_SHORT_PRESS | BT_BUTTON_LONG_PRESS,
                                         true, K_FOREVER);
+
+                LOG_INF("Event Occured");
 
                 switch (events) {
                         case BT_BUTTON_SHORT_PRESS:
