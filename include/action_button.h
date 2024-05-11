@@ -1,5 +1,5 @@
-#ifndef ROLL4_BUTTON_H
-#define ROLL_4_BUTTON_H
+#ifndef ROLL4_ACTION_BUTTON_H
+#define ROLL4_ACTION_BUTTON_H
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
