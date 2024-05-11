@@ -16,19 +16,17 @@ struct action_button device_button = {
     .press_status = released,
 };
 
+static bool button_service_ready = false;
 static struct k_work_q button_work_q;
+sys_slist_t button_list;
 
 K_THREAD_STACK_DEFINE(btn_work_stack, BTN_QUEUE_STACK_SIZE);
 
 static void init_work_q();
 
-int init_button_service() {
-    int err;
+void init_button_service() {
     init_work_q();
-    err = init_button(&bt_button);
-    err = init_button(&device_button);
-
-    return err;
+    sys_slist_init(&button_list);
 }
 
 static void init_work_q() {
@@ -36,4 +34,19 @@ static void init_work_q() {
     k_work_queue_start(&button_work_q,
                        btn_work_stack, K_THREAD_STACK_SIZEOF(btn_work_stack),
                        BTN_WORKQUEUE_PRIORITY, NULL);
+}
+
+int is_button_service_ready() {
+    return button_service_ready;
+}
+
+int register_button(struct action_button *button) {
+    int err;
+
+    if (!button_service_ready) init_button_service();
+    err = init_button(button);
+
+    if (err < 0) return err;
+
+    sys_sflist_append(&button_list, &(button->registry_node));
 }

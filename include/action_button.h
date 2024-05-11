@@ -18,6 +18,7 @@ struct action_button{
     struct gpio_dt_spec dt_spec;
     enum button_status press_status;
     struct k_event press_event;
+    sys_snode_t registry_node;
 };
 
 int init_button(struct action_button *button);
