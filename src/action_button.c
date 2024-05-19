@@ -14,6 +14,10 @@ static void on_pressed(struct action_button* button);
 static void on_released(struct action_button* button);
 static void check_pressed_time(struct k_work *item);
 
+static struct gpio_callback button_callback = {
+    .pin_mask = 0
+};
+
 int init_button(struct action_button *button) {
     int ret;
 
@@ -31,10 +35,10 @@ int init_button(struct action_button *button) {
     if(ret < 0) return ret;
     LOG_INF("BOTH_EDGE interrupt is setted");
 
-    gpio_init_callback(&(button->callback), button_isr, BIT(button->dt_spec.pin));
+    gpio_init_callback(&button_callback, button_isr, button_callback.pin_mask | (button->dt_spec.pin));
     LOG_INF("callback is initialized");
     
-    ret = gpio_add_callback(button->dt_spec.port, &(button->callback));
+    ret = gpio_add_callback(button->dt_spec.port, &button_callback);
     if(ret < 0) return ret;
     LOG_INF("callback is added");
 

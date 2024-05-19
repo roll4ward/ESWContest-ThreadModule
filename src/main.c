@@ -16,9 +16,11 @@ int main(void)
         int err;
         uint32_t events;
         extern struct action_button bt_button;
+        extern struct action_button device_button;
 
         init_button_service();
         register_button(&bt_button);
+        register_button(&device_button);
 
         LOG_INF("button initialize finished. : %d", err);
         while (1){
