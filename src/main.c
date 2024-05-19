@@ -11,34 +11,51 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "action_button.h"
 #include "button_service.h"
 
+#define     BT_BUTTON_NODE                           DT_ALIAS(bluetooth_button)
+#define     DEVICE_BUTTON_NODE                       DT_ALIAS(device_button)
+
+void bt_on_long(struct k_work *work) {
+        LOG_INF("bluetooth LONG PRESSED");
+}
+
+void bt_on_short(struct k_work *work) {
+        LOG_INF("bluetooth SHORT PRESSED");
+}
+
+void dv_on_long(struct k_work *work) {
+        LOG_INF("device LONG PRESSED");
+}
+
+void dv_on_short(struct k_work *work) {
+        LOG_INF("device SHORT PRESSED");
+}
+
+
+struct action_button_callback bt_callback = {
+        .on_long_press = bt_on_long,
+        .on_short_press = bt_on_short,
+};
+
+struct action_button_callback dv_callback = {
+        .on_long_press = dv_on_long,
+        .on_short_press = dv_on_short,
+};
+
+struct action_button bt_button = {
+    .dt_spec= GPIO_DT_SPEC_GET(BT_BUTTON_NODE, gpios),
+    .press_status = released,
+};
+
+struct action_button device_button = {
+    .dt_spec= GPIO_DT_SPEC_GET(DEVICE_BUTTON_NODE, gpios),
+    .press_status = released,
+};
+
 int main(void)
 {
-        int err;
-        uint32_t events;
-        extern struct action_button bt_button;
-        extern struct action_button device_button;
-
         init_button_service();
-        register_button(&bt_button);
-        register_button(&device_button);
-
-        LOG_INF("button initialize finished. : %d", err);
-        while (1){
-                events = k_event_wait(&(bt_button.press_event), 
-                                        BT_BUTTON_SHORT_PRESS | BT_BUTTON_LONG_PRESS,
-                                        true, K_FOREVER);
-
-                LOG_INF("Event Occured");
-
-                switch (events) {
-                        case BT_BUTTON_SHORT_PRESS:
-                                LOG_INF("Button Short pressed.");
-                                break;
-                        case BT_BUTTON_LONG_PRESS:
-                                LOG_INF("Button Long pressed.");
-                                break;
-                }
-        }
+        register_button(&bt_button, &bt_callback);
+        register_button(&device_button, &dv_callback);
         
         return 0;
 }

@@ -14,14 +14,11 @@ static void on_pressed(struct action_button* button);
 static void on_released(struct action_button* button);
 static void check_pressed_time(struct k_work *item);
 
-static struct gpio_callback button_callback = {
-    .pin_mask = 0
-};
-
-int init_button(struct action_button *button) {
+int init_button(struct action_button *button, struct action_button_callback *callback) {
     int ret;
 
-    k_event_init(&(button->press_event));
+    k_work_init(&(button->long_press_work), callback->on_long_press);
+    k_work_init(&(button->short_press_work), callback->on_short_press);
     k_work_init(&(button->press_time_check_work), check_pressed_time);
 
     if(!device_is_ready(button->dt_spec.port)) return -ENOTSUP;
@@ -35,10 +32,10 @@ int init_button(struct action_button *button) {
     if(ret < 0) return ret;
     LOG_INF("BOTH_EDGE interrupt is setted");
 
-    gpio_init_callback(&button_callback, button_isr, button_callback.pin_mask | (button->dt_spec.pin));
+    gpio_init_callback(&(button->gpio_callback), button_isr, BIT(button->dt_spec.pin));
     LOG_INF("callback is initialized");
     
-    ret = gpio_add_callback(button->dt_spec.port, &button_callback);
+    ret = gpio_add_callback(button->dt_spec.port, &(button->gpio_callback));
     if(ret < 0) return ret;
     LOG_INF("callback is added");
 
@@ -82,12 +79,12 @@ static void check_pressed_time(struct k_work *item) {
     for (;;) {
         uint32_t time_delta = ( k_uptime_get_32() - start_time);
         if (time_delta > LONG_PRESS_BOUNDARY_MS) {  // Long Press
-            k_event_set(&(button->press_event), BT_BUTTON_LONG_PRESS);
+            k_work_submit(&(button->long_press_work));
             return;
         }
 
         else if (button->press_status == released) {
-            k_event_set(&(button->press_event), BT_BUTTON_SHORT_PRESS);
+            k_work_submit(&(button->short_press_work));
             return;
         }
     }
