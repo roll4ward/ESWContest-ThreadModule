@@ -46,7 +46,7 @@ struct action_button bt_button = {
     .press_status = released,
 };
 
-struct action_button device_button = {
+struct action_button dev_button = {
     .dt_spec= GPIO_DT_SPEC_GET(DEVICE_BUTTON_NODE, gpios),
     .press_status = released,
 };
@@ -55,7 +55,7 @@ int main(void)
 {
         init_button_service();
         register_button(&bt_button, &bt_callback);
-        register_button(&device_button, &dv_callback);
+        register_button(&dev_button, &dv_callback);
         
         return 0;
 }
