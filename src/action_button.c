@@ -72,12 +72,12 @@ static void on_released(struct action_button* button) {
 }
 
 static void check_pressed_time(struct k_work *item) {
-    uint32_t start_time = k_uptime_get_32();
+    int64_t start_time = k_uptime_get();
     struct action_button *button;
     button = CONTAINER_OF(item, struct action_button, press_time_check_work);
     LOG_DBG("Check pressed time");
     for (;;) {
-        uint32_t time_delta = ( k_uptime_get_32() - start_time);
+        int64_t time_delta = ( k_uptime_get() - start_time);
         if (time_delta > LONG_PRESS_BOUNDARY_MS) {  // Long Press
             k_work_submit(&(button->long_press_work));
             return;
