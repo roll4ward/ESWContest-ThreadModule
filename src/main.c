@@ -11,16 +11,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "action_button.h"
 #include "button_service.h"
 
-#define     BT_BUTTON_NODE                           DT_ALIAS(bluetooth_button)
 #define     DEVICE_BUTTON_NODE                       DT_ALIAS(device_button)
-
-void bt_on_long(struct k_work *work) {
-        LOG_INF("bluetooth LONG PRESSED");
-}
-
-void bt_on_short(struct k_work *work) {
-        LOG_INF("bluetooth SHORT PRESSED");
-}
 
 void dv_on_long(struct k_work *work) {
         LOG_INF("device LONG PRESSED");
@@ -31,25 +22,18 @@ void dv_on_short(struct k_work *work) {
 }
 
 
-struct action_button_callback bt_callback = {
-        .on_long_press = bt_on_long,
-        .on_short_press = bt_on_short,
-};
-
 struct action_button_callback dv_callback = {
         .on_long_press = dv_on_long,
         .on_short_press = dv_on_short,
-};
-
-struct action_button bt_button = {
-    .dt_spec= GPIO_DT_SPEC_GET(BT_BUTTON_NODE, gpios),
-    .press_status = released,
 };
 
 struct action_button dev_button = {
     .dt_spec= GPIO_DT_SPEC_GET(DEVICE_BUTTON_NODE, gpios),
     .press_status = released,
 };
+
+extern struct action_button            bt_button;
+extern struct action_button_callback   bt_callback;
 
 int main(void)
 {

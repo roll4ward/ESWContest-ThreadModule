@@ -11,6 +11,7 @@ target_sources(app PRIVATE
 target_sources_ifdef(CONFIG_SHELL app PRIVATE src/thread_net_config_shell.c)
 target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_ad.c)
 target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_conn.c)
+target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_button.c)
 target_sources_ifdef(CONFIG_GPIO app PRIVATE src/action_button.c)
 target_sources_ifdef(CONFIG_GPIO app PRIVATE src/button_service.c)
 
