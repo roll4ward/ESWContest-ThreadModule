@@ -33,3 +33,7 @@ int start_bt_advertise() {
 
     return bt_le_adv_start(adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));   
 }
+
+int stop_bt_advertise() {
+    return bt_le_adv_stop();
+}
