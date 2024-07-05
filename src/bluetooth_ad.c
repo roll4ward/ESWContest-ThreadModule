@@ -2,6 +2,7 @@
 #include "zephyr/bluetooth/bluetooth.h"
 #include "zephyr/bluetooth/gap.h"
 #include <zephyr/logging/log.h>
+
 LOG_MODULE_REGISTER(bluetooth_ad, LOG_LEVEL_INF);
 
 static struct bt_le_adv_param *adv_param = BT_LE_ADV_PARAM(
@@ -18,7 +19,7 @@ static struct bt_data ad[] = {
 };
 
 static struct bt_data sd[] = {
-    BT_DATA(BT_DATA_NAME_SHORTENED, "Roll4", 5)
+    BT_DATA(BT_DATA_NAME_SHORTENED, "Roll4", 5),
 };
 
 int start_bt_advertise() {

@@ -9,7 +9,7 @@
 
 LOG_MODULE_REGISTER(button, LOG_LEVEL_INF);
 
-static void button_isr(const struct device *dt, struct gpio_callback *cb, uint32_t pins);
+static void button_isr(const struct device *dt, struct gpio_callback *cb, gpio_port_pins_t pins);
 static void on_pressed(struct action_button* button);
 static void on_released(struct action_button* button);
 static void check_pressed_time(struct k_work *item);
