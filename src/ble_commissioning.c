@@ -1,6 +1,7 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/logging/log.h>
 
 #include <openthread/dataset.h>
 
@@ -18,6 +19,11 @@
 #define BT_UUID_TNCS_COMMAND                                     BT_UUID_DECLARE_128(BT_UUID_TNCS_COMMAND_VAL)
 #define BT_UUID_TNCS_STATUS                                      BT_UUID_DECLARE_128(BT_UUID_TNCS_STATUS_VAL)
 
+#define CMD_CREATE_NEW_NETWORK                                   0x01
+#define CMD_JOIN_NETWORK                                         0x02
+
+LOG_MODULE_REGISTER(ble_commission, LOG_LEVEL_INF);
+
 otOperationalDataset dataset;
 
 static ssize_t read_network_name(struct bt_conn *conn,
@@ -25,6 +31,7 @@ static ssize_t read_network_name(struct bt_conn *conn,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
     uint8_t (*value)[17] = attr->user_data;
+    LOG_INF("Network Name read");
     return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
 }
 
@@ -41,7 +48,7 @@ static ssize_t write_network_name(struct bt_conn *conn,
     }
 
     memcpy(attr->user_data, buf, len);
-
+    LOG_HEXDUMP_INF(dataset.mNetworkName.m8, sizeof(dataset.mNetworkName.m8), "Network Name written");
     return len;
 }
 
@@ -50,6 +57,7 @@ static ssize_t read_network_key(struct bt_conn *conn,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
     uint8_t (*value)[16] = attr->user_data;
+    LOG_INF("Network Key read");
     return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
 }
 
@@ -64,9 +72,8 @@ static ssize_t write_network_key(struct bt_conn *conn,
     if (offset != 0) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
-
     memcpy(attr->user_data, buf, len);
-
+    LOG_HEXDUMP_INF(dataset.mNetworkKey.m8, sizeof(dataset.mNetworkKey.m8), "Network key written");
     return len;
 }
 
@@ -75,6 +82,7 @@ static ssize_t read_ext_panid(struct bt_conn *conn,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
     uint8_t (*value)[8] = attr->user_data;
+    LOG_INF("ext panid read");
     return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
 }
 
@@ -91,6 +99,37 @@ static ssize_t write_ext_panid(struct bt_conn *conn,
     }
 
     memcpy(attr->user_data, buf, len);
+    LOG_HEXDUMP_INF(dataset.mExtendedPanId.m8, sizeof(dataset.mExtendedPanId.m8), "Expanded PANID written");
+    return len;
+}
+
+static ssize_t write_command(struct bt_conn *conn,
+                                  const struct bt_gatt_attr *attr,
+                                  const void *buf, uint16_t len,
+                                  uint16_t offset, uint8_t flags) {
+    if (len != 1U) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    if (offset != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    }
+
+
+
+    switch (*((uint8_t *)buf)) {
+        case CMD_CREATE_NEW_NETWORK:
+            LOG_INF("COMMAND SET : CREATE NEW");
+            break;
+
+        case CMD_JOIN_NETWORK:
+            LOG_INF("COMMAND SET : JOIN");
+            break;
+
+        default:
+            return BT_GATT_ERR(BT_ATT_ERR_NOT_SUPPORTED);
+            break;
+    }
 
     return len;
 }
@@ -114,7 +153,7 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_TNCS_COMMAND,
                            BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_WRITE,
-                           NULL, NULL, NULL),
+                           NULL, write_command, NULL),
     BT_GATT_CHARACTERISTIC(BT_UUID_TNCS_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
