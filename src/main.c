@@ -9,9 +9,11 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "bluetooth_conn.h"
 #include "action_button.h"
 #include "button_service.h"
+#include "ble_commissioning.h"
 
 int main(void)
 {
         start_bt_advertise();
+        init_ble_commissioning_service();
         return 0;
 }
