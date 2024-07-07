@@ -26,19 +26,35 @@
 
 #define CMD_CREATE_NEW_NETWORK                                   0x01
 
+#define STATE_CREATE_NEW_NETWORK_WAITING                         0X00
+#define STATE_CREATE_NEW_NETWORK_STARTING                        0X01
+#define STATE_CREATE_NEW_NETWORK_CREATED                         0X02
+#define STATE_CREATE_NEW_NETWORK_FAILED                          0Xfe
+#define STATE_CREATE_NEW_NETWORK_DONE                            0xff
+
 LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_INF);
 
 static otOperationalDataset dataset;
 static struct k_work create_new_work;
+static uint8_t create_new_network_state = STATE_CREATE_NEW_NETWORK_WAITING;
+static bool indicate_enabled = false;
+static struct bt_gatt_indicate_params ind_params = {
+    .uuid = BT_UUID_NEW_NETWORK_STATUS,
+    .func = NULL,
+    .destroy = NULL,
+    .data = &create_new_network_state,
+    .len = sizeof(create_new_network_state)
+};
 
 void create_new_network(struct k_work *work);
+static int create_new_network_state_indicate(uint8_t state);
 
 static ssize_t read_network_name(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
     uint8_t (*value)[17] = attr->user_data;
-    LOG_INF("Network Name read");
+    LOG_DBG("Network Name read");
     return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
 }
 
@@ -55,7 +71,7 @@ static ssize_t write_network_name(struct bt_conn *conn,
     }
 
     memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_INF(dataset.mNetworkName.m8, sizeof(dataset.mNetworkName.m8), "Network Name written");
+    LOG_HEXDUMP_DBG(dataset.mNetworkName.m8, sizeof(dataset.mNetworkName.m8), "Network Name written");
     return len;
 }
 
@@ -91,7 +107,7 @@ static ssize_t write_command(struct bt_conn *conn,
 
     switch (*((uint8_t *)buf)) {
         case CMD_CREATE_NEW_NETWORK:
-            LOG_INF("COMMAND SET : CREATE NEW");
+            LOG_DBG("COMMAND SET : CREATE NEW");
             k_work_submit_to_queue(get_commission_work_q(), &create_new_work);
             break;
 
@@ -103,30 +119,18 @@ static ssize_t write_command(struct bt_conn *conn,
     return len;
 }
 
-void init_ble_create_network() {
-    k_work_init(&create_new_work, create_new_network);
+static ssize_t read_status(struct bt_conn *conn,
+                                 const struct bt_gatt_attr *attr,
+                                 void *buf, uint16_t len, 
+                                 uint16_t offset) {
+    uint8_t *value = attr->user_data;
+    LOG_DBG("state read");
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
 }
 
-void create_new_network(struct k_work *work) {
-    LOG_INF("Let's Create New NETWORK");
-    otOperationalDataset new_dataset;
-    otError err;
-    err = otDatasetCreateNewNetwork(openthread_get_default_instance(), &new_dataset);
-    
-    if (err == OT_ERROR_FAILED) {
-        LOG_ERR("FAILED: Create NEW Network");
-        return;
-    }
 
-    memcpy(&new_dataset.mNetworkName.m8, &dataset.mNetworkName.m8, 17);
-    memcpy(&dataset, &new_dataset, sizeof(new_dataset));
-
-    otDatasetSetActive(openthread_get_default_instance(), &dataset);
-
-    LOG_INF("Done: Create New Network");
-
-    openthread_start(openthread_get_default_context());
-    LOG_INF("Done: Start New Network");
+static void create_new_network_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value) {
+    indicate_enabled = (value == BT_GATT_CCC_INDICATE);
 }
 
 BT_GATT_SERVICE_DEFINE(
@@ -151,6 +155,48 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_NEW_NETWORK_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           NULL, NULL, NULL),
-    BT_GATT_CCC(NULL, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+                           read_status, NULL, &create_new_network_state),
+    BT_GATT_CCC(create_new_network_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
+
+void init_ble_create_network() {
+    k_work_init(&create_new_work, create_new_network);
+}
+
+void create_new_network(struct k_work *work) {
+    otOperationalDataset new_dataset;
+    otError err;
+    
+    LOG_DBG("Let's Create New NETWORK");
+    create_new_network_state_indicate(STATE_CREATE_NEW_NETWORK_STARTING);
+
+    err = otDatasetCreateNewNetwork(openthread_get_default_instance(), &new_dataset);
+    
+    if (err == OT_ERROR_FAILED) {
+        LOG_ERR("FAILED: Create NEW Network");
+        create_new_network_state_indicate(STATE_CREATE_NEW_NETWORK_FAILED);
+        return;
+    }
+
+    memcpy(&new_dataset.mNetworkName.m8, &dataset.mNetworkName.m8, 17);
+    memcpy(&dataset, &new_dataset, sizeof(new_dataset));
+
+    otDatasetSetActive(openthread_get_default_instance(), &dataset);
+
+    create_new_network_state_indicate(STATE_CREATE_NEW_NETWORK_CREATED);
+    LOG_DBG("Done: Create New Network");
+
+    openthread_start(openthread_get_default_context());
+    create_new_network_state_indicate(STATE_CREATE_NEW_NETWORK_DONE);
+    LOG_DBG("Done: Start New Network");
+}
+
+static int create_new_network_state_indicate(uint8_t state) {
+    if (!indicate_enabled) {
+		return -EACCES;
+	}
+
+    create_new_network_state = state;
+
+	return bt_gatt_indicate(NULL, &ind_params);
+}
