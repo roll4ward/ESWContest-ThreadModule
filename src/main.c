@@ -15,5 +15,7 @@ int main(void)
 {
         start_bt_advertise();
         init_ble_commissioning_service();
+        init_ble_create_network();
+        
         return 0;
 }
