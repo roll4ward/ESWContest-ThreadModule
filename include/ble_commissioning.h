@@ -5,5 +5,5 @@
 void init_ble_commissioning_service();
 struct k_work_q *get_commission_work_q();
 
-void init_ble_create_network();
+void init_ble_commission();
 #endif

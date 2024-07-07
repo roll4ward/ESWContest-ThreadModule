@@ -9,9 +9,9 @@ target_sources(app PRIVATE
 
 target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_ad.c)
 target_sources_ifdef(CONFIG_BT app PRIVATE src/bluetooth_conn.c)
-target_sources_ifdef(CONFIG_BT app PRIVATE src/ble_commissioning.c)
-target_sources_ifdef(CONFIG_BT app PRIVATE src/ble_joining.c)
-target_sources_ifdef(CONFIG_OPENTHREAD_FTD app PRIVATE src/ble_create_network.c)
+target_sources_ifdef(CONFIG_BT app PRIVATE src/commission_work_queue.c)
+target_sources_ifdef(CONFIG_BT app PRIVATE src/ble_scanning.c)
+target_sources_ifdef(CONFIG_BT app PRIVATE src/ble_commission.c)
 target_sources_ifdef(CONFIG_GPIO app PRIVATE src/action_button.c)
 target_sources_ifdef(CONFIG_GPIO app PRIVATE src/button_service.c)
 
