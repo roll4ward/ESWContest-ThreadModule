@@ -31,7 +31,6 @@
 #define CMD_CREATE_NEW_NETWORK                                   0x01
 #define CMD_JOIN_NETWORK                                         0X02
 #define CMD_RESET_DATASET                                        0X03
-#define CMD_THREAD_START                                         0x04
 
 #define STATE_WAITING                                            0X00
 #define STATE_PROGRESSING                                        0X01
@@ -67,12 +66,10 @@ static struct bt_gatt_indicate_params role_ind_params = {
 static void create_new_network(struct k_work *work);
 static void join_network(struct k_work *work);
 static void reset_dataset(struct k_work *work);
-static void start_thread(struct k_work *work);
 
 K_WORK_DEFINE(create_new_work, create_new_network);
 K_WORK_DEFINE(join_work, join_network);
 K_WORK_DEFINE(reset_dataset_work, reset_dataset);
-K_WORK_DEFINE(start_thread_work, start_thread);
 
 static int commission_state_indicate(uint8_t state);
 
@@ -182,11 +179,6 @@ static ssize_t write_command(struct bt_conn *conn,
             k_work_submit_to_queue(get_commission_work_q(), &reset_dataset_work);
             break;
 
-        case CMD_THREAD_START:
-            LOG_DBG("COMMAND SET : THREAD START");
-            k_work_submit_to_queue(get_commission_work_q(), &start_thread_work);
-            break;
-
         default:
             return BT_GATT_ERR(BT_ATT_ERR_NOT_SUPPORTED);
             break;
@@ -283,14 +275,15 @@ static void create_new_network(struct k_work *work) {
     }
 
     LOG_DBG("Done: Create New Network");
+    otThreadSetEnabled(openthread_get_default_instance(), true);
     openthread_api_mutex_unlock(openthread_get_default_context());
 
     commission_state_indicate(STATE_DONE);
 }
 
 static void join_network(struct k_work *work) {\
-    otOperationalDataset join_dataset = {0};
     otError err;
+    otOperationalDataset join_dataset = {0};
     
     openthread_api_mutex_lock(openthread_get_default_context());
     otIp6SetEnabled(openthread_get_default_instance(), true);
@@ -299,22 +292,22 @@ static void join_network(struct k_work *work) {\
     LOG_DBG("Let's Join New NETWORK");
     commission_state_indicate(STATE_PROGRESSING);
 
-    memcpy(&join_dataset, &dataset, sizeof(dataset));
-
-    LOG_HEXDUMP_INF(join_dataset.mNetworkKey.m8, sizeof(join_dataset.mNetworkKey.m8), "join network key");
-    LOG_HEXDUMP_INF(join_dataset.mNetworkName.m8, sizeof(join_dataset.mNetworkName.m8), "join network name");
-    LOG_HEXDUMP_INF(join_dataset.mExtendedPanId.m8, sizeof(join_dataset.mExtendedPanId.m8), "join ext panid");
+    memcpy(&join_dataset.mNetworkName, &dataset.mNetworkName, sizeof(dataset.mNetworkName));
+    join_dataset.mComponents.mIsNetworkNamePresent = true;
+    memcpy(&join_dataset.mNetworkKey, &dataset.mNetworkKey, sizeof(dataset.mNetworkKey));
+    join_dataset.mComponents.mIsNetworkKeyPresent = true;
+    memcpy(&join_dataset.mExtendedPanId, &dataset.mExtendedPanId, sizeof(dataset.mExtendedPanId));
+    join_dataset.mComponents.mIsExtendedPanIdPresent = true;
 
     err = otDatasetSetActive(openthread_get_default_instance(), &join_dataset);
-
     if (err != OT_ERROR_NONE) {
-        LOG_ERR("FAILED: Join NEW Network");
-        commission_state_indicate(STATE_FAILED);
+        LOG_ERR("cannot update DATASET");
         return;
     }
 
     LOG_DBG("Done: Join New Network");
 
+    otThreadSetEnabled(openthread_get_default_instance(), true);
     openthread_api_mutex_unlock(openthread_get_default_context());
 
     commission_state_indicate(STATE_DONE);
@@ -325,16 +318,6 @@ static void reset_dataset(struct k_work *work) {
 
     memset(&dataset, 0, sizeof(dataset));
     
-    commission_state_indicate(STATE_DONE);
-}
-
-static void start_thread(struct k_work *work) {
-    commission_state_indicate(STATE_PROGRESSING);
-    openthread_api_mutex_lock(openthread_get_default_context());
-
-    otThreadSetEnabled(openthread_get_default_instance(), true);
-
-    openthread_api_mutex_unlock(openthread_get_default_context());
     commission_state_indicate(STATE_DONE);
 }
 
@@ -350,7 +333,7 @@ static int commission_state_indicate(uint8_t state) {
 
 static int role_indicate() {
     role = otThreadGetDeviceRole(openthread_get_default_instance());
-    LOG_INF("rold : %d", role);
+    LOG_DBG("role : %d", role);
 
     if (!role_indicate_enabled) {
 		return -EACCES;
