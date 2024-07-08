@@ -71,9 +71,11 @@ K_WORK_DEFINE(create_new_work, create_new_network);
 K_WORK_DEFINE(join_work, join_network);
 K_WORK_DEFINE(reset_dataset_work, reset_dataset);
 
+
+
 static int commission_state_indicate(uint8_t state);
 
-static ssize_t read_network_name(struct bt_conn *conn,
+ssize_t read_network_name(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
@@ -125,7 +127,7 @@ static ssize_t write_network_key(struct bt_conn *conn,
     return len;
 }
 
-static ssize_t read_ext_panid(struct bt_conn *conn,
+ssize_t read_ext_panid(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
@@ -187,7 +189,7 @@ static ssize_t write_command(struct bt_conn *conn,
     return len;
 }
 
-static ssize_t read_status(struct bt_conn *conn,
+ssize_t read_status(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
@@ -219,15 +221,15 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_NAME,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_network_name, write_network_name, &(dataset.mNetworkName.m8)),
+                           read_network_name, write_network_name, dataset.mNetworkName.m8),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_KEY,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_network_key, write_network_key, &(dataset.mNetworkKey.m8)),
+                           read_network_key, write_network_key, dataset.mNetworkKey.m8),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_EXT_PANID,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_ext_panid, write_ext_panid, &(dataset.mExtendedPanId.m8)),
+                           read_ext_panid, write_ext_panid, dataset.mExtendedPanId.m8),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_COMMAND,
                            BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_WRITE,
@@ -236,7 +238,7 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
                            read_status, NULL, &commission_state),
-    BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+    BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                      
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ROLE,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
@@ -342,7 +344,7 @@ static int role_indicate() {
 	return bt_gatt_indicate(NULL, &role_ind_params);
 }
 
-static void *state_changed_cb(otChangedFlags flag, void *context) {
+static void state_changed_cb(otChangedFlags flag, void *context) {
     if (flag & OT_CHANGED_THREAD_ROLE) {
         role_indicate();
     }
