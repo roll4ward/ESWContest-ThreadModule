@@ -14,7 +14,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 int main(void)
 {
         start_bt_advertise();
-        init_ble_commissioning_service();
+
         init_ble_commission();
         
         return 0;

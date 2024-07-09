@@ -168,17 +168,17 @@ static ssize_t write_command(struct bt_conn *conn,
     switch (*((uint8_t *)buf)) {
         case CMD_CREATE_NEW_NETWORK:
             LOG_DBG("COMMAND SET : CREATE NEW");
-            k_work_submit_to_queue(get_commission_work_q(), &create_new_work);
+            k_work_submit(&create_new_work);
             break;
 
         case CMD_JOIN_NETWORK:
             LOG_DBG("COMMAND SET : JOIN");
-            k_work_submit_to_queue(get_commission_work_q(), &join_work);
+            k_work_submit(&join_work);
             break;
 
         case CMD_RESET_DATASET:
             LOG_DBG("COMMAND SET : RESET");
-            k_work_submit_to_queue(get_commission_work_q(), &reset_dataset_work);
+            k_work_submit(&reset_dataset_work);
             break;
 
         default:

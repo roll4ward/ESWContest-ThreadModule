@@ -1,29 +1,14 @@
 #include "button_service.h"
 #include "action_button.h" 
 
-#define     BTN_WORKQUEUE_PRIORITY                   0
-#define     BTN_QUEUE_STACK_SIZE                     512
-
 static bool button_service_ready = false;
-static struct k_work_q button_work_q;
-sys_slist_t button_list;
 
-K_THREAD_STACK_DEFINE(btn_work_stack, BTN_QUEUE_STACK_SIZE);
-
-static void init_work_q();
+static sys_slist_t button_list;
 
 void init_button_service() {
-    init_work_q();
     sys_slist_init(&button_list);
 
     button_service_ready = true;
-}
-
-static void init_work_q() {
-    k_work_queue_init(&button_work_q);
-    k_work_queue_start(&button_work_q,
-                       btn_work_stack, K_THREAD_STACK_SIZEOF(btn_work_stack),
-                       BTN_WORKQUEUE_PRIORITY, NULL);
 }
 
 int is_button_service_ready() {

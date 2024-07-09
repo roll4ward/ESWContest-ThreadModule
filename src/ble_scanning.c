@@ -33,6 +33,8 @@ static void scan(struct k_work *work);
 static void reset_queue(struct k_work *work);
 static void get_result(struct k_work *work);
 
+static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext);
+
 K_WORK_DEFINE(scan_work, scan);
 K_WORK_DEFINE(reset_queue_work, reset_queue);
 K_WORK_DEFINE(get_result_work, get_result);
@@ -96,17 +98,17 @@ static ssize_t write_command(struct bt_conn *conn,
     switch (*((uint8_t *)buf)) {
         case CMD_SCAN:
             LOG_DBG("COMMAND SET : SCAN");
-            k_work_submit_to_queue(get_commission_work_q(), &scan_work);
+            k_work_submit(&scan_work);
             break;
 
         case CMD_RESET_QUEUE:
             LOG_DBG("COMMAND SET : RESET_QUEUE");
-            k_work_submit_to_queue(get_commission_work_q(), &reset_queue_work);
+            k_work_submit(&reset_queue_work);
             break;
 
         case CMD_GET:
             LOG_DBG("COMMAND SET : GET");
-            k_work_submit_to_queue(get_commission_work_q(), &get_result_work);
+            k_work_submit(&get_result_work);
             break;
 
         default:
@@ -221,13 +223,55 @@ static int length_indicate() {
 }
 
 static void scan(struct k_work *work) {
+    otError err;
+
     LOG_DBG("Start Scan");
+    otIp6SetEnabled(openthread_get_default_instance(), true);
+    err = otThreadDiscover(openthread_get_default_instance(), 0xffffffff, 0, false, false, add_scan_result_to_queue, NULL);
+
+    if (err != OT_ERROR_NONE) {
+        LOG_ERR("SCAN FAILED : %d", err);
+    }
+}
+
+static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext) {
+    LOG_DBG("Scan callback");
+    k_queue_append(&scan_result_queue, aResult);
+
+    ++length;
+    length_indicate();
+    LOG_DBG("Add Result : %s, length = %d", aResult->mNetworkName.m8, length);
 }
 
 static void reset_queue(struct k_work *work) {
     LOG_DBG("Reset Queue");
+    
+    while (!k_queue_is_empty(&scan_result_queue)) {
+        k_queue_get(&scan_result_queue, K_NO_WAIT);
+        LOG_DBG("DELETE ITEM of QUEUE");
+    }
+
+    length = 0;
+    length_indicate();
+
+        LOG_DBG("RESET QUEUE DONE, length = %d", length);
 }
 
 static void get_result(struct k_work *work) {
     LOG_DBG("get result");
+
+    otActiveScanResult *result = k_queue_get(&scan_result_queue, K_NO_WAIT);
+    if (!result) {
+        LOG_DBG("No Data in Queue, empty ? = %d", k_queue_is_empty(&scan_result_queue));
+        return;
+    }
+
+    --length;
+    length_indicate();
+
+    LOG_DBG("Get Result : %s, length = %d", result->mNetworkName.m8, length);
+
+    memcpy(&current_scan_result, result, sizeof(*result));
+    network_name_indicate();
+    ext_panid_indicate();
 }
