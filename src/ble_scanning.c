@@ -27,7 +27,7 @@
 #define CMD_RESET_QUEUE                                          0X02
 #define CMD_GET                                                  0X03
 
-LOG_MODULE_REGISTER(ble_thread_scan, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(ble_thread_scan, LOG_LEVEL_INF);
 
 static void scan(struct k_work *work);
 static void reset_queue(struct k_work *work);
@@ -41,10 +41,10 @@ K_WORK_DEFINE(get_result_work, get_result);
 
 K_QUEUE_DEFINE(scan_result_queue);
 
-static otActiveScanResult current_scan_result;
+static otActiveScanResult current_scan_result = {0};
 
 static uint8_t status = 0x00;
-static uint32_t length = 0;
+static uint8_t length = 0;
 
 static bool network_name_indicate_enabled = false;
 static bool ext_panid_indicate_enabled = false;
@@ -138,7 +138,7 @@ static ssize_t read_length(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
-    uint32_t *value = attr->user_data;
+    uint8_t *value = attr->user_data;
 
     LOG_DBG("status read");
     
@@ -227,7 +227,7 @@ static void scan(struct k_work *work) {
 
     LOG_DBG("Start Scan");
     otIp6SetEnabled(openthread_get_default_instance(), true);
-    err = otThreadDiscover(openthread_get_default_instance(), 0xffffffff, 0, false, false, add_scan_result_to_queue, NULL);
+    err = otThreadDiscover(openthread_get_default_instance(), 0xffffffff, OT_PANID_BROADCAST, false, false, add_scan_result_to_queue, NULL);
 
     if (err != OT_ERROR_NONE) {
         LOG_ERR("SCAN FAILED : %d", err);
@@ -236,18 +236,36 @@ static void scan(struct k_work *work) {
 
 static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext) {
     LOG_DBG("Scan callback");
-    k_queue_append(&scan_result_queue, aResult);
+
+    LOG_HEXDUMP_DBG(&aResult->mNetworkName, sizeof(aResult->mNetworkName), "a Result Name");
+    LOG_HEXDUMP_DBG(&aResult->mPanId, sizeof(aResult->mPanId), "a Panid");
+
+    if (!aResult->mDiscover) {
+        LOG_DBG("Not Discover result");
+        return;
+    }
+
+    otActiveScanResult *result = k_malloc(sizeof(otActiveScanResult));
+    if(!result) {
+        LOG_ERR("CAN NOT Allocate memory for scan result");
+        return;
+    }
+
+    memcpy(result, aResult, sizeof(otActiveScanResult));
+
+    k_queue_append(&scan_result_queue, result);
 
     ++length;
     length_indicate();
-    LOG_DBG("Add Result : %s, length = %d", aResult->mNetworkName.m8, length);
+
+    LOG_DBG("Add Result : %s, length = %d", result->mNetworkName.m8, length);
 }
 
 static void reset_queue(struct k_work *work) {
     LOG_DBG("Reset Queue");
     
     while (!k_queue_is_empty(&scan_result_queue)) {
-        k_queue_get(&scan_result_queue, K_NO_WAIT);
+        k_free(k_queue_get(&scan_result_queue, K_NO_WAIT));
         LOG_DBG("DELETE ITEM of QUEUE");
     }
 
@@ -271,7 +289,9 @@ static void get_result(struct k_work *work) {
 
     LOG_DBG("Get Result : %s, length = %d", result->mNetworkName.m8, length);
 
-    memcpy(&current_scan_result, result, sizeof(*result));
+    memcpy(&current_scan_result, result, sizeof(otActiveScanResult));
+    k_free(result);
+
     network_name_indicate();
     ext_panid_indicate();
 }
