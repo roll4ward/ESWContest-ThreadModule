@@ -32,12 +32,6 @@
 #define CMD_JOIN_NETWORK                                         0X02
 #define CMD_RESET_DATASET                                        0X03
 
-#define STATE_WAITING                                            0X00
-#define STATE_PROGRESSING                                        0X01
-#define STATE_FAILED                                             0X02
-#define STATE_DONE                                               0X03
-
-
 LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_INF);
 
 static otOperationalDataset dataset;

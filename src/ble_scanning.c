@@ -43,7 +43,7 @@ K_QUEUE_DEFINE(scan_result_queue);
 
 static otActiveScanResult current_scan_result = {0};
 
-static uint8_t status = 0x00;
+static uint8_t status = STATE_WAITING;
 static uint8_t length = 0;
 
 static bool network_name_indicate_enabled = false;
@@ -206,7 +206,9 @@ static int ext_panid_indicate() {
 	return bt_gatt_indicate(NULL, &ext_panid_ind_params);
 }
 
-static int status_indicate() {
+static int status_indicate(uint8_t state) {
+    status = state;
+
     if (!status_indicate_enabled) {
 		return -EACCES;
 	}
@@ -224,12 +226,15 @@ static int length_indicate() {
 
 static void scan(struct k_work *work) {
     otError err;
-
+    
     LOG_DBG("Start Scan");
+    status_indicate(STATE_PROGRESSING);
+
     otIp6SetEnabled(openthread_get_default_instance(), true);
     err = otThreadDiscover(openthread_get_default_instance(), 0xffffffff, OT_PANID_BROADCAST, false, false, add_scan_result_to_queue, NULL);
 
     if (err != OT_ERROR_NONE) {
+        status_indicate(STATE_FAILED);
         LOG_ERR("SCAN FAILED : %d", err);
     }
 }
@@ -241,13 +246,15 @@ static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext
     LOG_HEXDUMP_DBG(&aResult->mPanId, sizeof(aResult->mPanId), "a Panid");
 
     if (!aResult->mDiscover) {
-        LOG_DBG("Not Discover result");
+        LOG_DBG("Scan end");
+        status_indicate(STATE_DONE);
         return;
     }
 
     otActiveScanResult *result = k_malloc(sizeof(otActiveScanResult));
     if(!result) {
         LOG_ERR("CAN NOT Allocate memory for scan result");
+        status_indicate(STATE_FAILED);
         return;
     }
 
@@ -263,6 +270,7 @@ static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext
 
 static void reset_queue(struct k_work *work) {
     LOG_DBG("Reset Queue");
+    status_indicate(STATE_PROGRESSING);
     
     while (!k_queue_is_empty(&scan_result_queue)) {
         k_free(k_queue_get(&scan_result_queue, K_NO_WAIT));
@@ -272,14 +280,17 @@ static void reset_queue(struct k_work *work) {
     length = 0;
     length_indicate();
 
-        LOG_DBG("RESET QUEUE DONE, length = %d", length);
+    status_indicate(STATE_DONE);
+    LOG_DBG("RESET QUEUE DONE, length = %d", length);
 }
 
 static void get_result(struct k_work *work) {
     LOG_DBG("get result");
+    status_indicate(STATE_PROGRESSING);
 
     otActiveScanResult *result = k_queue_get(&scan_result_queue, K_NO_WAIT);
     if (!result) {
+        status_indicate(STATE_FAILED);
         LOG_DBG("No Data in Queue, empty ? = %d", k_queue_is_empty(&scan_result_queue));
         return;
     }
@@ -294,4 +305,5 @@ static void get_result(struct k_work *work) {
 
     network_name_indicate();
     ext_panid_indicate();
+    status_indicate(STATE_DONE);
 }
