@@ -12,13 +12,13 @@
 
 #include "ble_commissioning.h"
 
-#define BT_UUID_COMMISSION_SERVICE_VAL                           BT_UUID_128_ENCODE(0x9fff0001,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_COMMISSION_NETWORK_NAME_VAL                      BT_UUID_128_ENCODE(0x9fff0002,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_COMMISSION_NETWORK_KEY_VAL                       BT_UUID_128_ENCODE(0x9fff0003,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_COMMISSION_EXT_PANID_VAL                         BT_UUID_128_ENCODE(0x9fff0004,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_COMMISSION_COMMAND_VAL                           BT_UUID_128_ENCODE(0x9fff0005,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_COMMISSION_STATUS_VAL                            BT_UUID_128_ENCODE(0x9fff0006,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_COMMISSION_ROLE_VAL                              BT_UUID_128_ENCODE(0x9fff0007,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
+#define BT_UUID_COMMISSION_SERVICE_VAL                           BT_UUID_128_ENCODE(0x9fff0001,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_COMMISSION_NETWORK_NAME_VAL                      BT_UUID_128_ENCODE(0x9fff0002,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_COMMISSION_NETWORK_KEY_VAL                       BT_UUID_128_ENCODE(0x9fff0003,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_COMMISSION_EXT_PANID_VAL                         BT_UUID_128_ENCODE(0x9fff0004,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_COMMISSION_COMMAND_VAL                           BT_UUID_128_ENCODE(0x9fff0005,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_COMMISSION_STATUS_VAL                            BT_UUID_128_ENCODE(0x9fff0006,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_COMMISSION_ROLE_VAL                              BT_UUID_128_ENCODE(0x9fff0007,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
 
 #define BT_UUID_COMMISSION_SERVICE                              BT_UUID_DECLARE_128(BT_UUID_COMMISSION_SERVICE_VAL)
 #define BT_UUID_COMMISSION_NETWORK_NAME                         BT_UUID_DECLARE_128(BT_UUID_COMMISSION_NETWORK_NAME_VAL)
@@ -28,15 +28,11 @@
 #define BT_UUID_COMMISSION_STATUS                               BT_UUID_DECLARE_128(BT_UUID_COMMISSION_STATUS_VAL)
 #define BT_UUID_COMMISSION_ROLE                                 BT_UUID_DECLARE_128(BT_UUID_COMMISSION_ROLE_VAL)
 
-#define CMD_CREATE_NEW_NETWORK                                   0x01
-#define CMD_JOIN_NETWORK                                         0X02
-#define CMD_RESET_DATASET                                        0X03
-
 LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_INF);
 
 static otOperationalDataset dataset;
-static uint8_t commission_state = STATE_WAITING;
-static uint8_t role = OT_DEVICE_ROLE_DISABLED;
+static status commission_status = WAITING;
+static otDeviceRole role = OT_DEVICE_ROLE_DISABLED;
 
 static bool status_indicate_enabled = false;
 static bool role_indicate_enabled = false;
@@ -45,8 +41,8 @@ static struct bt_gatt_indicate_params status_ind_params = {
     .uuid = BT_UUID_COMMISSION_STATUS,
     .func = NULL,
     .destroy = NULL,
-    .data = &commission_state,
-    .len = sizeof(commission_state)
+    .data = &commission_status,
+    .len = sizeof(commission_status)
 };
 
 static struct bt_gatt_indicate_params role_ind_params = {
@@ -160,17 +156,17 @@ static ssize_t write_command(struct bt_conn *conn,
     }
 
     switch (*((uint8_t *)buf)) {
-        case CMD_CREATE_NEW_NETWORK:
+        case NEW_NETWORK:
             LOG_DBG("COMMAND SET : CREATE NEW");
             k_work_submit(&create_new_work);
             break;
 
-        case CMD_JOIN_NETWORK:
+        case JOIN_NETWORK:
             LOG_DBG("COMMAND SET : JOIN");
             k_work_submit(&join_work);
             break;
 
-        case CMD_RESET_DATASET:
+        case RESET_DATASET:
             LOG_DBG("COMMAND SET : RESET");
             k_work_submit(&reset_dataset_work);
             break;
@@ -231,7 +227,7 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_status, NULL, &commission_state),
+                           read_status, NULL, &commission_status),
     BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                      
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ROLE,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
@@ -249,13 +245,13 @@ static void create_new_network(struct k_work *work) {
     otThreadSetEnabled(openthread_get_default_instance(), false);
 
     LOG_DBG("Let's Create New NETWORK");
-    commission_state_indicate(STATE_PROGRESSING);
+    commission_state_indicate(PROGRESSING);
 
     err = otDatasetCreateNewNetwork(openthread_get_default_instance(), &new_dataset);
     
     if (err != OT_ERROR_NONE) {
         LOG_ERR("FAILED: Create NEW Network");
-        commission_state_indicate(STATE_FAILED);
+        commission_state_indicate(FAILED);
         return;
     }
 
@@ -266,7 +262,7 @@ static void create_new_network(struct k_work *work) {
 
     if (err != OT_ERROR_NONE) {
         LOG_ERR("FAILED: Create NEW Network");
-        commission_state_indicate(STATE_FAILED);
+        commission_state_indicate(FAILED);
         return;
     }
 
@@ -274,7 +270,7 @@ static void create_new_network(struct k_work *work) {
     otThreadSetEnabled(openthread_get_default_instance(), true);
     openthread_api_mutex_unlock(openthread_get_default_context());
 
-    commission_state_indicate(STATE_DONE);
+    commission_state_indicate(DONE);
 }
 
 static void join_network(struct k_work *work) {\
@@ -286,7 +282,7 @@ static void join_network(struct k_work *work) {\
     otThreadSetEnabled(openthread_get_default_instance(), false);
 
     LOG_DBG("Let's Join New NETWORK");
-    commission_state_indicate(STATE_PROGRESSING);
+    commission_state_indicate(PROGRESSING);
 
     memcpy(&join_dataset.mNetworkName, &dataset.mNetworkName, sizeof(dataset.mNetworkName));
     join_dataset.mComponents.mIsNetworkNamePresent = true;
@@ -306,19 +302,19 @@ static void join_network(struct k_work *work) {\
     otThreadSetEnabled(openthread_get_default_instance(), true);
     openthread_api_mutex_unlock(openthread_get_default_context());
 
-    commission_state_indicate(STATE_DONE);
+    commission_state_indicate(DONE);
 }
 
 static void reset_dataset(struct k_work *work) {
-    commission_state_indicate(STATE_PROGRESSING);
+    commission_state_indicate(PROGRESSING);
 
     memset(&dataset, 0, sizeof(dataset));
     
-    commission_state_indicate(STATE_DONE);
+    commission_state_indicate(DONE);
 }
 
 static int commission_state_indicate(uint8_t state) {
-    commission_state = state;
+    commission_status = state;
 
     if (!status_indicate_enabled) {
 		return -EACCES;

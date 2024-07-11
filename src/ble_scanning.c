@@ -9,12 +9,12 @@
 
 #include "ble_commissioning.h"
 
-#define BT_UUID_SCAN_SERVICE_VAL                                 BT_UUID_128_ENCODE(0x9fff0008,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_SCAN_COMMAND_VAL                                 BT_UUID_128_ENCODE(0x9fff0009,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_SCAN_NETWORK_NAME_VAL                            BT_UUID_128_ENCODE(0x9fff000a,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_SCAN_EXT_PANID_VAL                               BT_UUID_128_ENCODE(0x9fff000b,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_SCAN_STATUS_VAL                                  BT_UUID_128_ENCODE(0x9fff000c,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
-#define BT_UUID_SCAN_LENGTH_VAL                                  BT_UUID_128_ENCODE(0x9fff000d,0x89f6, 0x4f1b, 0x9e5d, 0xd4648d944c9)
+#define BT_UUID_SCAN_SERVICE_VAL                                 BT_UUID_128_ENCODE(0x9fff0008,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_SCAN_COMMAND_VAL                                 BT_UUID_128_ENCODE(0x9fff0009,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_SCAN_NETWORK_NAME_VAL                            BT_UUID_128_ENCODE(0x9fff000a,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_SCAN_EXT_PANID_VAL                               BT_UUID_128_ENCODE(0x9fff000b,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_SCAN_STATUS_VAL                                  BT_UUID_128_ENCODE(0x9fff000c,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
+#define BT_UUID_SCAN_LENGTH_VAL                                  BT_UUID_128_ENCODE(0x9fff000d,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
 
 #define BT_UUID_SCAN_SERVICE                                     BT_UUID_DECLARE_128(BT_UUID_SCAN_SERVICE_VAL)
 #define BT_UUID_SCAN_COMMAND                                     BT_UUID_DECLARE_128(BT_UUID_SCAN_COMMAND_VAL)
@@ -22,10 +22,6 @@
 #define BT_UUID_SCAN_EXT_PANID                                   BT_UUID_DECLARE_128(BT_UUID_SCAN_EXT_PANID_VAL)
 #define BT_UUID_SCAN_STATUS                                      BT_UUID_DECLARE_128(BT_UUID_SCAN_STATUS_VAL)
 #define BT_UUID_SCAN_LENGTH                                      BT_UUID_DECLARE_128(BT_UUID_SCAN_LENGTH_VAL)
-
-#define CMD_SCAN                                                 0x01
-#define CMD_RESET_QUEUE                                          0X02
-#define CMD_GET                                                  0X03
 
 LOG_MODULE_REGISTER(ble_thread_scan, LOG_LEVEL_INF);
 
@@ -43,7 +39,7 @@ K_QUEUE_DEFINE(scan_result_queue);
 
 static otActiveScanResult current_scan_result = {0};
 
-static uint8_t status = STATE_WAITING;
+static status scan_status = WAITING;
 static uint8_t length = 0;
 
 static bool network_name_indicate_enabled = false;
@@ -71,7 +67,7 @@ static struct bt_gatt_indicate_params status_ind_params = {
     .uuid = BT_UUID_SCAN_STATUS,
     .func = NULL,
     .destroy = NULL,
-    .data = &status,
+    .data = &scan_status,
     .len = sizeof(status)
 };
 
@@ -96,17 +92,17 @@ static ssize_t write_command(struct bt_conn *conn,
     }
 
     switch (*((uint8_t *)buf)) {
-        case CMD_SCAN:
+        case SCAN:
             LOG_DBG("COMMAND SET : SCAN");
             k_work_submit(&scan_work);
             break;
 
-        case CMD_RESET_QUEUE:
+        case RESET_QUEUE:
             LOG_DBG("COMMAND SET : RESET_QUEUE");
             k_work_submit(&reset_queue_work);
             break;
 
-        case CMD_GET:
+        case GET:
             LOG_DBG("COMMAND SET : GET");
             k_work_submit(&get_result_work);
             break;
@@ -181,7 +177,7 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_status, NULL, &status),
+                           read_status, NULL, &scan_status),
     BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_LENGTH,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
@@ -207,7 +203,7 @@ static int ext_panid_indicate() {
 }
 
 static int status_indicate(uint8_t state) {
-    status = state;
+    scan_status = state;
 
     if (!status_indicate_enabled) {
 		return -EACCES;
@@ -228,13 +224,13 @@ static void scan(struct k_work *work) {
     otError err;
     
     LOG_DBG("Start Scan");
-    status_indicate(STATE_PROGRESSING);
+    status_indicate(PROGRESSING);
 
     otIp6SetEnabled(openthread_get_default_instance(), true);
     err = otThreadDiscover(openthread_get_default_instance(), 0xffffffff, OT_PANID_BROADCAST, false, false, add_scan_result_to_queue, NULL);
 
     if (err != OT_ERROR_NONE) {
-        status_indicate(STATE_FAILED);
+        status_indicate(FAILED);
         LOG_ERR("SCAN FAILED : %d", err);
     }
 }
@@ -247,14 +243,14 @@ static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext
 
     if (!aResult->mDiscover) {
         LOG_DBG("Scan end");
-        status_indicate(STATE_DONE);
+        status_indicate(DONE);
         return;
     }
 
     otActiveScanResult *result = k_malloc(sizeof(otActiveScanResult));
     if(!result) {
         LOG_ERR("CAN NOT Allocate memory for scan result");
-        status_indicate(STATE_FAILED);
+        status_indicate(FAILED);
         return;
     }
 
@@ -270,7 +266,7 @@ static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext
 
 static void reset_queue(struct k_work *work) {
     LOG_DBG("Reset Queue");
-    status_indicate(STATE_PROGRESSING);
+    status_indicate(PROGRESSING);
     
     while (!k_queue_is_empty(&scan_result_queue)) {
         k_free(k_queue_get(&scan_result_queue, K_NO_WAIT));
@@ -280,17 +276,17 @@ static void reset_queue(struct k_work *work) {
     length = 0;
     length_indicate();
 
-    status_indicate(STATE_DONE);
+    status_indicate(DONE);
     LOG_DBG("RESET QUEUE DONE, length = %d", length);
 }
 
 static void get_result(struct k_work *work) {
     LOG_DBG("get result");
-    status_indicate(STATE_PROGRESSING);
+    status_indicate(PROGRESSING);
 
     otActiveScanResult *result = k_queue_get(&scan_result_queue, K_NO_WAIT);
     if (!result) {
-        status_indicate(STATE_FAILED);
+        status_indicate(FAILED);
         LOG_DBG("No Data in Queue, empty ? = %d", k_queue_is_empty(&scan_result_queue));
         return;
     }
@@ -305,5 +301,5 @@ static void get_result(struct k_work *work) {
 
     network_name_indicate();
     ext_panid_indicate();
-    status_indicate(STATE_DONE);
+    status_indicate(DONE);
 }
