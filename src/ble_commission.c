@@ -43,23 +43,7 @@ USER_DATA_INFO(otDeviceRole, role, 1U, OT_DEVICE_ROLE_DISABLED);
 static bool status_indicate_enabled = false;
 static bool role_indicate_enabled = false;
 
-// Indicate Parameters
-static struct bt_gatt_indicate_params status_ind_params = {
-    .uuid = BT_UUID_COMMISSION_STATUS,
-    .func = NULL,
-    .destroy = NULL,
-    .data = &USER_DATA_ORIGIN(commission_status),
-    .len = USER_DATA_LENGTH(commission_status)
-};
-
-static struct bt_gatt_indicate_params role_ind_params = {
-    .uuid = BT_UUID_COMMISSION_ROLE,
-    .func = NULL,
-    .destroy = NULL,
-    .data = &USER_DATA_ORIGIN(role),
-    .len = USER_DATA_LENGTH(role)
-};
-
+// Workqueue Variables
 static void create_new_network(struct k_work *work);
 static void join_network(struct k_work *work);
 static void reset_dataset(struct k_work *work);
@@ -68,7 +52,51 @@ K_WORK_DEFINE(create_new_work, create_new_network);
 K_WORK_DEFINE(join_work, join_network);
 K_WORK_DEFINE(reset_dataset_work, reset_dataset);
 
-static int commission_state_indicate(uint8_t state);
+static ssize_t write_command(struct bt_conn *conn,
+                                  const struct bt_gatt_attr *attr,
+                                  const void *buf, uint16_t len,
+                                  uint16_t offset, uint8_t flags);
+
+static ssize_t write_gatt(struct bt_conn *conn,
+                                  const struct bt_gatt_attr *attr,
+                                  const void *buf, uint16_t len,
+                                  uint16_t offset, uint8_t flags);
+
+static void status_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
+static void role_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
+
+static int commission_state_indicate(uint8_t state);                               
+
+BT_GATT_SERVICE_DEFINE(
+    thread_commission_service,
+    BT_GATT_PRIMARY_SERVICE(BT_UUID_COMMISSION_SERVICE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_NAME,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           read_gatt, write_gatt, &networkname),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_KEY,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           read_gatt, write_gatt, &networkkey),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_EXT_PANID,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                           read_gatt, write_gatt, &extpanid),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_COMMAND,
+                           BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_WRITE,
+                           NULL, write_command, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_STATUS,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &commission_status),
+    BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                      
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ROLE,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &role),
+    BT_GATT_CCC(role_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+);
 
 ssize_t read_gatt(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
@@ -142,36 +170,38 @@ static void role_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value
     role_indicate_enabled = (value == BT_GATT_CCC_INDICATE);
 }
 
-BT_GATT_SERVICE_DEFINE(
-    thread_commission_service,
-    BT_GATT_PRIMARY_SERVICE(BT_UUID_COMMISSION_SERVICE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_NAME,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_gatt, write_gatt, &networkname),
-    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_KEY,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_gatt, write_gatt, &networkkey),
-    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_EXT_PANID,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_gatt, write_gatt, &extpanid),
-    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_COMMAND,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE,
-                           NULL, write_command, NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_STATUS,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
-                           BT_GATT_PERM_READ,
-                           read_gatt, NULL, &commission_status),
-    BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                      
-    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ROLE,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
-                           BT_GATT_PERM_READ,
-                           read_gatt, NULL, &role),
-    BT_GATT_CCC(role_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-);
+static int commission_state_indicate(uint8_t state) {
+    struct bt_gatt_indicate_params ind_params = {
+        .uuid = BT_UUID_COMMISSION_STATUS,
+        .data = commission_status.data,
+        .len = commission_status.len
+    };
+
+    USER_DATA_ORIGIN(commission_status) = state;
+
+    if (!status_indicate_enabled) {
+		return -EACCES;
+	}
+
+	return bt_gatt_indicate(NULL, &ind_params);
+}
+
+static int role_indicate() {
+    struct bt_gatt_indicate_params ind_params = {
+        .uuid = BT_UUID_COMMISSION_ROLE,
+        .data = role.data,
+        .len = role.len
+    };
+
+    USER_DATA_ORIGIN(role) = otThreadGetDeviceRole(openthread_get_default_instance());
+    LOG_DBG("role : %d", USER_DATA_ORIGIN(role));
+
+    if (!role_indicate_enabled) {
+		return -EACCES;
+	}
+
+	return bt_gatt_indicate(NULL, &ind_params);
+}
 
 static void create_new_network(struct k_work *work) {
     otOperationalDataset new_dataset;
@@ -251,27 +281,6 @@ static void reset_dataset(struct k_work *work) {
     memset(&USER_DATA_ORIGIN(extpanid), 0, sizeof(otExtendedPanId));
     
     commission_state_indicate(DONE);
-}
-
-static int commission_state_indicate(uint8_t state) {
-    USER_DATA_ORIGIN(commission_status) = state;
-
-    if (!status_indicate_enabled) {
-		return -EACCES;
-	}
-
-	return bt_gatt_indicate(NULL, &status_ind_params);
-}
-
-static int role_indicate() {
-    USER_DATA_ORIGIN(role) = otThreadGetDeviceRole(openthread_get_default_instance());
-    LOG_DBG("role : %d", USER_DATA_ORIGIN(role));
-
-    if (!role_indicate_enabled) {
-		return -EACCES;
-	}
-
-	return bt_gatt_indicate(NULL, &role_ind_params);
 }
 
 static void state_changed_cb(otChangedFlags flag, void *context) {

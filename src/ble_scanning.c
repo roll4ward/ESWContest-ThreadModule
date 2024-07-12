@@ -25,60 +25,75 @@
 
 LOG_MODULE_REGISTER(ble_thread_scan, LOG_LEVEL_INF);
 
-static void scan(struct k_work *work);
-static void reset_queue(struct k_work *work);
-static void get_result(struct k_work *work);
-
-static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext);
-
-K_WORK_DEFINE(scan_work, scan);
-K_WORK_DEFINE(reset_queue_work, reset_queue);
-K_WORK_DEFINE(get_result_work, get_result);
-
-K_QUEUE_DEFINE(scan_result_queue);
-
-// User Datasection
+// User Data section
 USER_DATA_INFO(otNetworkName, scan_networkname, OT_NETWORK_NAME_MAX_SIZE + 1, {0});
 USER_DATA_INFO(otExtendedPanId, scan_extpanid, OT_EXT_PAN_ID_SIZE, {0});
 USER_DATA_INFO(status, scan_status, 1U, WAITING);
 USER_DATA_INFO(uint8_t, length, 1U, 0);
 
+// Workqueue
+static void scan(struct k_work *work);
+static void reset_queue(struct k_work *work);
+static void get_result(struct k_work *work);
+
+K_WORK_DEFINE(scan_work, scan);
+K_WORK_DEFINE(reset_queue_work, reset_queue);
+K_WORK_DEFINE(get_result_work, get_result);
+
+// Scan Result Queue
+static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext);
+
+K_QUEUE_DEFINE(scan_result_queue);
+
+// Indicate Enable Variable
 static bool network_name_indicate_enabled = false;
 static bool ext_panid_indicate_enabled = false;
 static bool status_indicate_enabled = false;
 static bool length_indicate_enabled = false;
 
-static struct bt_gatt_indicate_params network_name_ind_params = {
-    .uuid = BT_UUID_SCAN_NETWORK_NAME,
-    .func = NULL,
-    .destroy = NULL,
-    .data = &USER_DATA_ORIGIN(scan_networkname),
-    .len = USER_DATA_LENGTH(scan_networkname)
-};
+static ssize_t write_command(struct bt_conn *conn,
+                                  const struct bt_gatt_attr *attr,
+                                  const void *buf, uint16_t len,
+                                  uint16_t offset, uint8_t flags);
 
-static struct bt_gatt_indicate_params ext_panid_ind_params = {
-    .uuid = BT_UUID_SCAN_EXT_PANID,
-    .func = NULL,
-    .destroy = NULL,
-    .data = &USER_DATA_ORIGIN(scan_extpanid),
-    .len = USER_DATA_LENGTH(scan_extpanid)
-};
+static void network_name_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
+static void ext_panid_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
+static void status_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
+static void length_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value);
 
-static struct bt_gatt_indicate_params status_ind_params = {
-    .uuid = BT_UUID_SCAN_STATUS,
-    .func = NULL,
-    .destroy = NULL,
-    .data = &USER_DATA_ORIGIN(scan_status),
-    .len = USER_DATA_LENGTH(scan_status)
-};
+static int network_name_indicate();
+static int ext_panid_indicate();
+static int status_indicate(uint8_t state);
+static int length_indicate();
 
-static struct bt_gatt_indicate_params length_ind_params = {
-    .uuid = BT_UUID_SCAN_LENGTH,
-    .func = NULL,
-    .destroy = NULL,
-    .data = &USER_DATA_ORIGIN(length),
-    .len = USER_DATA_LENGTH(length)
-};
+BT_GATT_SERVICE_DEFINE(
+    thread_scan_service,
+    BT_GATT_PRIMARY_SERVICE(BT_UUID_SCAN_SERVICE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_COMMAND,
+                           BT_GATT_CHRC_WRITE,
+                           BT_GATT_PERM_WRITE,
+                           NULL, write_command, NULL),
+    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_NETWORK_NAME,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_networkname)),
+    BT_GATT_CCC(network_name_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_EXT_PANID,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_extpanid)),
+    BT_GATT_CCC(ext_panid_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                       
+    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_STATUS,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_status)),
+    BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_LENGTH,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &USER_DATA_ORIGIN(length)),
+    BT_GATT_CCC(length_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+);
 
 static ssize_t write_command(struct bt_conn *conn,
                                   const struct bt_gatt_attr *attr,
@@ -132,41 +147,18 @@ static void length_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t val
     length_indicate_enabled = (value == BT_GATT_CCC_INDICATE);
 }
 
-BT_GATT_SERVICE_DEFINE(
-    thread_scan_service,
-    BT_GATT_PRIMARY_SERVICE(BT_UUID_SCAN_SERVICE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_COMMAND,
-                           BT_GATT_CHRC_WRITE,
-                           BT_GATT_PERM_WRITE,
-                           NULL, write_command, NULL),
-    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_NETWORK_NAME,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
-                           BT_GATT_PERM_READ,
-                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_networkname)),
-    BT_GATT_CCC(network_name_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_EXT_PANID,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
-                           BT_GATT_PERM_READ,
-                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_extpanid)),
-    BT_GATT_CCC(ext_panid_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                       
-    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_STATUS,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
-                           BT_GATT_PERM_READ,
-                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_status)),
-    BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-    BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_LENGTH,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
-                           BT_GATT_PERM_READ,
-                           read_gatt, NULL, &USER_DATA_ORIGIN(length)),
-    BT_GATT_CCC(length_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-);
-
 static int network_name_indicate() {
     if (!network_name_indicate_enabled) {
 		return -EACCES;
 	}
 
-	return bt_gatt_indicate(NULL, &network_name_ind_params);
+    struct bt_gatt_indicate_params ind_params = {
+        .uuid = BT_UUID_SCAN_NETWORK_NAME,
+        .data = scan_networkname.data,
+        .len = scan_networkname.len
+    };
+
+	return bt_gatt_indicate(NULL, &ind_params);
 }
 
 static int ext_panid_indicate() {
@@ -174,7 +166,13 @@ static int ext_panid_indicate() {
 		return -EACCES;
 	}
 
-	return bt_gatt_indicate(NULL, &ext_panid_ind_params);
+    struct bt_gatt_indicate_params ind_params = {
+        .uuid = BT_UUID_SCAN_EXT_PANID,
+        .data = scan_extpanid.data,
+        .len = scan_extpanid.len
+    };
+
+	return bt_gatt_indicate(NULL, &ind_params);
 }
 
 static int status_indicate(uint8_t state) {
@@ -184,7 +182,13 @@ static int status_indicate(uint8_t state) {
 		return -EACCES;
 	}
 
-	return bt_gatt_indicate(NULL, &status_ind_params);
+    struct bt_gatt_indicate_params ind_params = {
+        .uuid = BT_UUID_SCAN_STATUS,
+        .data = scan_status.data,
+        .len = scan_status.len
+    };
+
+	return bt_gatt_indicate(NULL, &ind_params);
 }
 
 static int length_indicate() {
@@ -192,7 +196,13 @@ static int length_indicate() {
 		return -EACCES;
 	}
 
-	return bt_gatt_indicate(NULL, &length_ind_params);
+    struct bt_gatt_indicate_params ind_params = {
+        .uuid = BT_UUID_SCAN_LENGTH,
+        .data = length.data,
+        .len = length.len
+    };
+
+	return bt_gatt_indicate(NULL, &ind_params);
 }
 
 static void scan(struct k_work *work) {
