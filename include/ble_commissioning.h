@@ -1,6 +1,6 @@
 #ifndef BLE_COMMISSIONING_H
 #define BLE_COMMISSIONING_H
-
+#include <zephyr/bluetooth/gatt.h>
 enum status {
     WAITING = (uint8_t)0x00,
     PROGRESSING,
@@ -35,8 +35,15 @@ static struct user_data_info _name = { \
     .len = _len \
 }
 
-#define USER_DATA(_name) (_name##_data)
+#define USER_DATA_ORIGIN(_name) (_name##_data)
+#define USER_DATA(_name) _name##.data
+#define USER_DATA_REF(_name) CONTAINER_OF(_name)
 #define USER_DATA_LENGTH(_name) sizeof(_name##_data)
+
+ssize_t read_gatt(struct bt_conn *conn,
+                                 const struct bt_gatt_attr *attr,
+                                 void *buf, uint16_t len, 
+                                 uint16_t offset);
 
 void init_ble_commission();
 #endif

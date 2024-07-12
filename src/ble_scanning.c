@@ -52,7 +52,7 @@ static struct bt_gatt_indicate_params network_name_ind_params = {
     .uuid = BT_UUID_SCAN_NETWORK_NAME,
     .func = NULL,
     .destroy = NULL,
-    .data = &USER_DATA(scan_networkname),
+    .data = &USER_DATA_ORIGIN(scan_networkname),
     .len = USER_DATA_LENGTH(scan_networkname)
 };
 
@@ -60,7 +60,7 @@ static struct bt_gatt_indicate_params ext_panid_ind_params = {
     .uuid = BT_UUID_SCAN_EXT_PANID,
     .func = NULL,
     .destroy = NULL,
-    .data = &USER_DATA(scan_extpanid),
+    .data = &USER_DATA_ORIGIN(scan_extpanid),
     .len = USER_DATA_LENGTH(scan_extpanid)
 };
 
@@ -68,7 +68,7 @@ static struct bt_gatt_indicate_params status_ind_params = {
     .uuid = BT_UUID_SCAN_STATUS,
     .func = NULL,
     .destroy = NULL,
-    .data = &USER_DATA(scan_status),
+    .data = &USER_DATA_ORIGIN(scan_status),
     .len = USER_DATA_LENGTH(scan_status)
 };
 
@@ -76,7 +76,7 @@ static struct bt_gatt_indicate_params length_ind_params = {
     .uuid = BT_UUID_SCAN_LENGTH,
     .func = NULL,
     .destroy = NULL,
-    .data = &USER_DATA(length),
+    .data = &USER_DATA_ORIGIN(length),
     .len = USER_DATA_LENGTH(length)
 };
 
@@ -116,32 +116,6 @@ static ssize_t write_command(struct bt_conn *conn,
     return len;
 }
 
-extern ssize_t read_network_name(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset);
-
-extern ssize_t read_ext_panid(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset);      
-
-extern ssize_t read_status(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset);
-
-static ssize_t read_length(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset) {
-    uint8_t *value = attr->user_data;
-
-    LOG_DBG("status read");
-    
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
-}
-
 static void network_name_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value) {
     network_name_indicate_enabled = (value == BT_GATT_CCC_INDICATE);
 }
@@ -168,22 +142,22 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_NETWORK_NAME,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_network_name, NULL, &USER_DATA(scan_networkname)),
+                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_networkname)),
     BT_GATT_CCC(network_name_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_EXT_PANID,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_ext_panid, NULL, &USER_DATA(scan_extpanid)),
+                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_extpanid)),
     BT_GATT_CCC(ext_panid_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                       
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_status, NULL, &USER_DATA(scan_status)),
+                           read_gatt, NULL, &USER_DATA_ORIGIN(scan_status)),
     BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_LENGTH,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_length, NULL, &USER_DATA(length)),
+                           read_gatt, NULL, &USER_DATA_ORIGIN(length)),
     BT_GATT_CCC(length_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -204,7 +178,7 @@ static int ext_panid_indicate() {
 }
 
 static int status_indicate(uint8_t state) {
-    USER_DATA(scan_status) = state;
+    USER_DATA_ORIGIN(scan_status) = state;
 
     if (!status_indicate_enabled) {
 		return -EACCES;
@@ -259,10 +233,10 @@ static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext
 
     k_queue_append(&scan_result_queue, result);
 
-    ++(USER_DATA(length));
+    ++(USER_DATA_ORIGIN(length));
     length_indicate();
 
-    LOG_DBG("Add Result : %s, length = %d", result->mNetworkName.m8, USER_DATA(length));
+    LOG_DBG("Add Result : %s, length = %d", result->mNetworkName.m8, USER_DATA_ORIGIN(length));
 }
 
 static void reset_queue(struct k_work *work) {
@@ -274,11 +248,11 @@ static void reset_queue(struct k_work *work) {
         LOG_DBG("DELETE ITEM of QUEUE");
     }
 
-    USER_DATA(length) = 0;
+    USER_DATA_ORIGIN(length) = 0;
     length_indicate();
 
     status_indicate(DONE);
-    LOG_DBG("RESET QUEUE DONE, length = %d", USER_DATA(length));
+    LOG_DBG("RESET QUEUE DONE, length = %d", USER_DATA_ORIGIN(length));
 }
 
 static void get_result(struct k_work *work) {
@@ -292,13 +266,13 @@ static void get_result(struct k_work *work) {
         return;
     }
 
-    --USER_DATA(length);
+    --USER_DATA_ORIGIN(length);
     length_indicate();
 
-    LOG_DBG("Get Result : %s, length = %d", result->mNetworkName.m8, USER_DATA(length));
+    LOG_DBG("Get Result : %s, length = %d", result->mNetworkName.m8, USER_DATA_ORIGIN(length));
 
-    memcpy(&USER_DATA(scan_networkname), &result->mNetworkName, sizeof(otNetworkName));
-    memcpy(&USER_DATA(scan_extpanid), &result->mExtendedPanId, sizeof(otExtendedPanId));
+    memcpy(&USER_DATA_ORIGIN(scan_networkname), &result->mNetworkName, sizeof(otNetworkName));
+    memcpy(&USER_DATA_ORIGIN(scan_extpanid), &result->mExtendedPanId, sizeof(otExtendedPanId));
     k_free(result);
 
     network_name_indicate();

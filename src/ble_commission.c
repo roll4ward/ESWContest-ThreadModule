@@ -48,7 +48,7 @@ static struct bt_gatt_indicate_params status_ind_params = {
     .uuid = BT_UUID_COMMISSION_STATUS,
     .func = NULL,
     .destroy = NULL,
-    .data = &USER_DATA(commission_status),
+    .data = &USER_DATA_ORIGIN(commission_status),
     .len = USER_DATA_LENGTH(commission_status)
 };
 
@@ -56,7 +56,7 @@ static struct bt_gatt_indicate_params role_ind_params = {
     .uuid = BT_UUID_COMMISSION_ROLE,
     .func = NULL,
     .destroy = NULL,
-    .data = &USER_DATA(role),
+    .data = &USER_DATA_ORIGIN(role),
     .len = USER_DATA_LENGTH(role)
 };
 
@@ -70,20 +70,21 @@ K_WORK_DEFINE(reset_dataset_work, reset_dataset);
 
 static int commission_state_indicate(uint8_t state);
 
-ssize_t read_network_name(struct bt_conn *conn,
+ssize_t read_gatt(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,
                                  void *buf, uint16_t len, 
                                  uint16_t offset) {
-    uint8_t (*value)[17] = attr->user_data;
-    LOG_DBG("Network Name read");
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
+    user_data_info *info = (user_data_info *)attr->user_data;
+    LOG_HEXDUMP_DBG(((struct bt_uuid_128 *)BT_UUID_128(attr->uuid))->val, 16U, "Data read. UUID :");
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, info->data, info->len);                                
 }
 
-static ssize_t write_network_name(struct bt_conn *conn,
+static ssize_t write_gatt(struct bt_conn *conn,
                                   const struct bt_gatt_attr *attr,
                                   const void *buf, uint16_t len,
                                   uint16_t offset, uint8_t flags) {
-    if (len != 17U) {
+    user_data_info *info = (user_data_info *)attr->user_data;
+    if (len != info->len) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
     }
 
@@ -91,60 +92,9 @@ static ssize_t write_network_name(struct bt_conn *conn,
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
-    memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_DBG(&USER_DATA(networkname), sizeof(otNetworkName), "Network Name written");
-    return len;
-}
-
-static ssize_t read_network_key(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset) {
-    uint8_t (*value)[16] = attr->user_data;
-    LOG_DBG("Network Key read");
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
-}
-
-static ssize_t write_network_key(struct bt_conn *conn,
-                                  const struct bt_gatt_attr *attr,
-                                  const void *buf, uint16_t len,
-                                  uint16_t offset, uint8_t flags) {
-    if (len != 16U) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    }
-
-    if (offset != 0) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
-    }
-
-    memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_DBG(&USER_DATA(networkkey), sizeof(otNetworkKey), "Network Key written");
-    return len;
-}
-
-ssize_t read_ext_panid(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset) {
-    uint8_t (*value)[8] = attr->user_data;
-    LOG_DBG("ext panid read");
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
-}
-
-static ssize_t write_ext_panid(struct bt_conn *conn,
-                                  const struct bt_gatt_attr *attr,
-                                  const void *buf, uint16_t len,
-                                  uint16_t offset, uint8_t flags) {
-    if (len != 8U) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    }
-
-    if (offset != 0) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
-    }
-
-    memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_DBG(&USER_DATA(extpanid), sizeof(otExtendedPanId), "Extended panid written");
+    memcpy(info->data, buf, len);
+    LOG_HEXDUMP_DBG(((struct bt_uuid_128 *)BT_UUID_128(attr->uuid))->val, 16U, "Data Write. UUID :");
+    LOG_HEXDUMP_DBG(info->data, info->len, "Value :");
     return len;
 }
 
@@ -184,24 +134,6 @@ static ssize_t write_command(struct bt_conn *conn,
     return len;
 }
 
-ssize_t read_status(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset) {
-    uint8_t *value = attr->user_data;
-    LOG_DBG("state read");
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
-}
-
-static ssize_t read_role(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr,
-                                 void *buf, uint16_t len, 
-                                 uint16_t offset) {
-    uint8_t *value = attr->user_data;
-    LOG_DBG("role read");
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value, sizeof(*value));
-}
-
 static void status_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value) {
     status_indicate_enabled = (value == BT_GATT_CCC_INDICATE);
 }
@@ -216,15 +148,15 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_NAME,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_network_name, write_network_name, &USER_DATA(networkname)),
+                           read_gatt, write_gatt, &networkname),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_KEY,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_network_key, write_network_key, &USER_DATA(networkkey)),
+                           read_gatt, write_gatt, &networkkey),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_EXT_PANID,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_ext_panid, write_ext_panid, &USER_DATA(extpanid)),
+                           read_gatt, write_gatt, &extpanid),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_COMMAND,
                            BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_WRITE,
@@ -232,12 +164,12 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_status, NULL, &USER_DATA(commission_status)),
+                           read_gatt, NULL, &commission_status),
     BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                      
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ROLE,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_role, NULL, &USER_DATA(role)),
+                           read_gatt, NULL, &role),
     BT_GATT_CCC(role_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -260,9 +192,9 @@ static void create_new_network(struct k_work *work) {
         return;
     }
 
-    memcpy(&new_dataset.mNetworkName, &USER_DATA(networkname), sizeof(otNetworkName));
-    memcpy(&USER_DATA(networkkey), &new_dataset.mNetworkKey, sizeof(otNetworkKey));
-    memcpy(&USER_DATA(extpanid), &new_dataset.mExtendedPanId, sizeof(otExtendedPanId));
+    memcpy(&new_dataset.mNetworkName, &USER_DATA_ORIGIN(networkname), sizeof(otNetworkName));
+    memcpy(&USER_DATA_ORIGIN(networkkey), &new_dataset.mNetworkKey, sizeof(otNetworkKey));
+    memcpy(&USER_DATA_ORIGIN(extpanid), &new_dataset.mExtendedPanId, sizeof(otExtendedPanId));
 
     err = otDatasetSetActive(openthread_get_default_instance(), &new_dataset);
 
@@ -290,11 +222,11 @@ static void join_network(struct k_work *work) {\
     LOG_DBG("Let's Join New NETWORK");
     commission_state_indicate(PROGRESSING);
 
-    memcpy(&join_dataset.mNetworkName, &USER_DATA(networkname), sizeof(otNetworkName));
+    memcpy(&join_dataset.mNetworkName, &USER_DATA_ORIGIN(networkname), sizeof(otNetworkName));
     join_dataset.mComponents.mIsNetworkNamePresent = true;
-    memcpy(&join_dataset.mNetworkKey, &USER_DATA(networkkey), sizeof(otNetworkKey));
+    memcpy(&join_dataset.mNetworkKey, &USER_DATA_ORIGIN(networkkey), sizeof(otNetworkKey));
     join_dataset.mComponents.mIsNetworkKeyPresent = true;
-    memcpy(&join_dataset.mExtendedPanId, &USER_DATA(extpanid), sizeof(otExtendedPanId));
+    memcpy(&join_dataset.mExtendedPanId, &USER_DATA_ORIGIN(extpanid), sizeof(otExtendedPanId));
     join_dataset.mComponents.mIsExtendedPanIdPresent = true;
 
     err = otDatasetSetActive(openthread_get_default_instance(), &join_dataset);
@@ -314,15 +246,15 @@ static void join_network(struct k_work *work) {\
 static void reset_dataset(struct k_work *work) {
     commission_state_indicate(PROGRESSING);
 
-    memset(&USER_DATA(networkname), 0, sizeof(otNetworkName));
-    memset(&USER_DATA(networkkey), 0, sizeof(otNetworkKey));
-    memset(&USER_DATA(extpanid), 0, sizeof(otExtendedPanId));
+    memset(&USER_DATA_ORIGIN(networkname), 0, sizeof(otNetworkName));
+    memset(&USER_DATA_ORIGIN(networkkey), 0, sizeof(otNetworkKey));
+    memset(&USER_DATA_ORIGIN(extpanid), 0, sizeof(otExtendedPanId));
     
     commission_state_indicate(DONE);
 }
 
 static int commission_state_indicate(uint8_t state) {
-    USER_DATA(commission_status) = state;
+    USER_DATA_ORIGIN(commission_status) = state;
 
     if (!status_indicate_enabled) {
 		return -EACCES;
@@ -332,8 +264,8 @@ static int commission_state_indicate(uint8_t state) {
 }
 
 static int role_indicate() {
-    USER_DATA(role) = otThreadGetDeviceRole(openthread_get_default_instance());
-    LOG_DBG("role : %d", USER_DATA(role));
+    USER_DATA_ORIGIN(role) = otThreadGetDeviceRole(openthread_get_default_instance());
+    LOG_DBG("role : %d", USER_DATA_ORIGIN(role));
 
     if (!role_indicate_enabled) {
 		return -EACCES;
