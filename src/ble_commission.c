@@ -20,37 +20,44 @@
 #define BT_UUID_COMMISSION_STATUS_VAL                            BT_UUID_128_ENCODE(0x9fff0006,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
 #define BT_UUID_COMMISSION_ROLE_VAL                              BT_UUID_128_ENCODE(0x9fff0007,0x89f6, 0x4f1b, 0x9e5d, 0x0d4648d944c9)
 
-#define BT_UUID_COMMISSION_SERVICE                              BT_UUID_DECLARE_128(BT_UUID_COMMISSION_SERVICE_VAL)
-#define BT_UUID_COMMISSION_NETWORK_NAME                         BT_UUID_DECLARE_128(BT_UUID_COMMISSION_NETWORK_NAME_VAL)
-#define BT_UUID_COMMISSION_NETWORK_KEY                          BT_UUID_DECLARE_128(BT_UUID_COMMISSION_NETWORK_KEY_VAL)
-#define BT_UUID_COMMISSION_EXT_PANID                            BT_UUID_DECLARE_128(BT_UUID_COMMISSION_EXT_PANID_VAL)
-#define BT_UUID_COMMISSION_COMMAND                              BT_UUID_DECLARE_128(BT_UUID_COMMISSION_COMMAND_VAL)
-#define BT_UUID_COMMISSION_STATUS                               BT_UUID_DECLARE_128(BT_UUID_COMMISSION_STATUS_VAL)
-#define BT_UUID_COMMISSION_ROLE                                 BT_UUID_DECLARE_128(BT_UUID_COMMISSION_ROLE_VAL)
+#define BT_UUID_COMMISSION_SERVICE                               BT_UUID_DECLARE_128(BT_UUID_COMMISSION_SERVICE_VAL)
+#define BT_UUID_COMMISSION_NETWORK_NAME                          BT_UUID_DECLARE_128(BT_UUID_COMMISSION_NETWORK_NAME_VAL)
+#define BT_UUID_COMMISSION_NETWORK_KEY                           BT_UUID_DECLARE_128(BT_UUID_COMMISSION_NETWORK_KEY_VAL)
+#define BT_UUID_COMMISSION_EXT_PANID                             BT_UUID_DECLARE_128(BT_UUID_COMMISSION_EXT_PANID_VAL)
+#define BT_UUID_COMMISSION_COMMAND                               BT_UUID_DECLARE_128(BT_UUID_COMMISSION_COMMAND_VAL)
+#define BT_UUID_COMMISSION_STATUS                                BT_UUID_DECLARE_128(BT_UUID_COMMISSION_STATUS_VAL)
+#define BT_UUID_COMMISSION_ROLE                                  BT_UUID_DECLARE_128(BT_UUID_COMMISSION_ROLE_VAL)
 
-LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_DBG);
 
-static otOperationalDataset dataset;
-static status commission_status = WAITING;
-static otDeviceRole role = OT_DEVICE_ROLE_DISABLED;
+// User Data Section
 
+// User Data Info
+USER_DATA_INFO(otNetworkName, networkname, OT_NETWORK_NAME_MAX_SIZE + 1, {0});
+USER_DATA_INFO(otNetworkKey, networkkey, OT_NETWORK_KEY_SIZE, {0});
+USER_DATA_INFO(otExtendedPanId, extpanid, OT_EXT_PAN_ID_SIZE, {0});
+USER_DATA_INFO(status, commission_status, 1U, WAITING);
+USER_DATA_INFO(otDeviceRole, role, 1U, OT_DEVICE_ROLE_DISABLED);
+
+// Indicate Enable
 static bool status_indicate_enabled = false;
 static bool role_indicate_enabled = false;
 
+// Indicate Parameters
 static struct bt_gatt_indicate_params status_ind_params = {
     .uuid = BT_UUID_COMMISSION_STATUS,
     .func = NULL,
     .destroy = NULL,
-    .data = &commission_status,
-    .len = sizeof(commission_status)
+    .data = &USER_DATA(commission_status),
+    .len = USER_DATA_LENGTH(commission_status)
 };
 
 static struct bt_gatt_indicate_params role_ind_params = {
     .uuid = BT_UUID_COMMISSION_ROLE,
     .func = NULL,
     .destroy = NULL,
-    .data = &role,
-    .len = sizeof(role)
+    .data = &USER_DATA(role),
+    .len = USER_DATA_LENGTH(role)
 };
 
 static void create_new_network(struct k_work *work);
@@ -60,8 +67,6 @@ static void reset_dataset(struct k_work *work);
 K_WORK_DEFINE(create_new_work, create_new_network);
 K_WORK_DEFINE(join_work, join_network);
 K_WORK_DEFINE(reset_dataset_work, reset_dataset);
-
-
 
 static int commission_state_indicate(uint8_t state);
 
@@ -87,7 +92,7 @@ static ssize_t write_network_name(struct bt_conn *conn,
     }
 
     memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_DBG(dataset.mNetworkName.m8, sizeof(dataset.mNetworkName.m8), "Network Name written");
+    LOG_HEXDUMP_DBG(&USER_DATA(networkname), sizeof(otNetworkName), "Network Name written");
     return len;
 }
 
@@ -113,7 +118,7 @@ static ssize_t write_network_key(struct bt_conn *conn,
     }
 
     memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_DBG(dataset.mNetworkKey.m8, sizeof(dataset.mNetworkKey.m8), "Network Key written");
+    LOG_HEXDUMP_DBG(&USER_DATA(networkkey), sizeof(otNetworkKey), "Network Key written");
     return len;
 }
 
@@ -139,7 +144,7 @@ static ssize_t write_ext_panid(struct bt_conn *conn,
     }
 
     memcpy(attr->user_data, buf, len);
-    LOG_HEXDUMP_DBG(dataset.mExtendedPanId.m8, sizeof(dataset.mExtendedPanId.m8), "Extended panid written");
+    LOG_HEXDUMP_DBG(&USER_DATA(extpanid), sizeof(otExtendedPanId), "Extended panid written");
     return len;
 }
 
@@ -211,15 +216,15 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_NAME,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_network_name, write_network_name, dataset.mNetworkName.m8),
+                           read_network_name, write_network_name, &USER_DATA(networkname)),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_NETWORK_KEY,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_network_key, write_network_key, dataset.mNetworkKey.m8),
+                           read_network_key, write_network_key, &USER_DATA(networkkey)),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_EXT_PANID,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
-                           read_ext_panid, write_ext_panid, dataset.mExtendedPanId.m8),
+                           read_ext_panid, write_ext_panid, &USER_DATA(extpanid)),
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_COMMAND,
                            BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_WRITE,
@@ -227,12 +232,12 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_status, NULL, &commission_status),
+                           read_status, NULL, &USER_DATA(commission_status)),
     BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                      
     BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ROLE,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_role, NULL, &role),
+                           read_role, NULL, &USER_DATA(role)),
     BT_GATT_CCC(role_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -255,10 +260,11 @@ static void create_new_network(struct k_work *work) {
         return;
     }
 
-    memcpy(&new_dataset.mNetworkName.m8, &dataset.mNetworkName.m8, 17);
-    memcpy(&dataset, &new_dataset, sizeof(new_dataset));
+    memcpy(&new_dataset.mNetworkName, &USER_DATA(networkname), sizeof(otNetworkName));
+    memcpy(&USER_DATA(networkkey), &new_dataset.mNetworkKey, sizeof(otNetworkKey));
+    memcpy(&USER_DATA(extpanid), &new_dataset.mExtendedPanId, sizeof(otExtendedPanId));
 
-    err = otDatasetSetActive(openthread_get_default_instance(), &dataset);
+    err = otDatasetSetActive(openthread_get_default_instance(), &new_dataset);
 
     if (err != OT_ERROR_NONE) {
         LOG_ERR("FAILED: Create NEW Network");
@@ -284,11 +290,11 @@ static void join_network(struct k_work *work) {\
     LOG_DBG("Let's Join New NETWORK");
     commission_state_indicate(PROGRESSING);
 
-    memcpy(&join_dataset.mNetworkName, &dataset.mNetworkName, sizeof(dataset.mNetworkName));
+    memcpy(&join_dataset.mNetworkName, &USER_DATA(networkname), sizeof(otNetworkName));
     join_dataset.mComponents.mIsNetworkNamePresent = true;
-    memcpy(&join_dataset.mNetworkKey, &dataset.mNetworkKey, sizeof(dataset.mNetworkKey));
+    memcpy(&join_dataset.mNetworkKey, &USER_DATA(networkkey), sizeof(otNetworkKey));
     join_dataset.mComponents.mIsNetworkKeyPresent = true;
-    memcpy(&join_dataset.mExtendedPanId, &dataset.mExtendedPanId, sizeof(dataset.mExtendedPanId));
+    memcpy(&join_dataset.mExtendedPanId, &USER_DATA(extpanid), sizeof(otExtendedPanId));
     join_dataset.mComponents.mIsExtendedPanIdPresent = true;
 
     err = otDatasetSetActive(openthread_get_default_instance(), &join_dataset);
@@ -308,13 +314,15 @@ static void join_network(struct k_work *work) {\
 static void reset_dataset(struct k_work *work) {
     commission_state_indicate(PROGRESSING);
 
-    memset(&dataset, 0, sizeof(dataset));
+    memset(&USER_DATA(networkname), 0, sizeof(otNetworkName));
+    memset(&USER_DATA(networkkey), 0, sizeof(otNetworkKey));
+    memset(&USER_DATA(extpanid), 0, sizeof(otExtendedPanId));
     
     commission_state_indicate(DONE);
 }
 
 static int commission_state_indicate(uint8_t state) {
-    commission_status = state;
+    USER_DATA(commission_status) = state;
 
     if (!status_indicate_enabled) {
 		return -EACCES;
@@ -324,8 +332,8 @@ static int commission_state_indicate(uint8_t state) {
 }
 
 static int role_indicate() {
-    role = otThreadGetDeviceRole(openthread_get_default_instance());
-    LOG_DBG("role : %d", role);
+    USER_DATA(role) = otThreadGetDeviceRole(openthread_get_default_instance());
+    LOG_DBG("role : %d", USER_DATA(role));
 
     if (!role_indicate_enabled) {
 		return -EACCES;

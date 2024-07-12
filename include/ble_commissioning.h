@@ -23,5 +23,20 @@ enum scan_command {
 };
 typedef uint8_t scan_command;
 
+typedef struct user_data_info {
+    void * data;
+    size_t len;
+} user_data_info;
+
+#define USER_DATA_INFO(_type, _name, _len, _init_val) \
+static _type _name##_data = _init_val; \
+static struct user_data_info _name = { \
+    .data = &(_name##_data), \
+    .len = _len \
+}
+
+#define USER_DATA(_name) (_name##_data)
+#define USER_DATA_LENGTH(_name) sizeof(_name##_data)
+
 void init_ble_commission();
 #endif

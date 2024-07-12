@@ -37,10 +37,11 @@ K_WORK_DEFINE(get_result_work, get_result);
 
 K_QUEUE_DEFINE(scan_result_queue);
 
-static otActiveScanResult current_scan_result = {0};
-
-static status scan_status = WAITING;
-static uint8_t length = 0;
+// User Datasection
+USER_DATA_INFO(otNetworkName, scan_networkname, OT_NETWORK_NAME_MAX_SIZE + 1, {0});
+USER_DATA_INFO(otExtendedPanId, scan_extpanid, OT_EXT_PAN_ID_SIZE, {0});
+USER_DATA_INFO(status, scan_status, 1U, WAITING);
+USER_DATA_INFO(uint8_t, length, 1U, 0);
 
 static bool network_name_indicate_enabled = false;
 static bool ext_panid_indicate_enabled = false;
@@ -51,32 +52,32 @@ static struct bt_gatt_indicate_params network_name_ind_params = {
     .uuid = BT_UUID_SCAN_NETWORK_NAME,
     .func = NULL,
     .destroy = NULL,
-    .data = current_scan_result.mNetworkName.m8,
-    .len = sizeof(current_scan_result.mNetworkName.m8)
+    .data = &USER_DATA(scan_networkname),
+    .len = USER_DATA_LENGTH(scan_networkname)
 };
 
 static struct bt_gatt_indicate_params ext_panid_ind_params = {
     .uuid = BT_UUID_SCAN_EXT_PANID,
     .func = NULL,
     .destroy = NULL,
-    .data = current_scan_result.mExtendedPanId.m8,
-    .len = sizeof(current_scan_result.mExtendedPanId.m8)
+    .data = &USER_DATA(scan_extpanid),
+    .len = USER_DATA_LENGTH(scan_extpanid)
 };
 
 static struct bt_gatt_indicate_params status_ind_params = {
     .uuid = BT_UUID_SCAN_STATUS,
     .func = NULL,
     .destroy = NULL,
-    .data = &scan_status,
-    .len = sizeof(status)
+    .data = &USER_DATA(scan_status),
+    .len = USER_DATA_LENGTH(scan_status)
 };
 
 static struct bt_gatt_indicate_params length_ind_params = {
     .uuid = BT_UUID_SCAN_LENGTH,
     .func = NULL,
     .destroy = NULL,
-    .data = &length,
-    .len = sizeof(length)
+    .data = &USER_DATA(length),
+    .len = USER_DATA_LENGTH(length)
 };
 
 static ssize_t write_command(struct bt_conn *conn,
@@ -167,22 +168,22 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_NETWORK_NAME,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_network_name, NULL, current_scan_result.mNetworkName.m8),
+                           read_network_name, NULL, &USER_DATA(scan_networkname)),
     BT_GATT_CCC(network_name_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_EXT_PANID,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_ext_panid, NULL, current_scan_result.mExtendedPanId.m8),
+                           read_ext_panid, NULL, &USER_DATA(scan_extpanid)),
     BT_GATT_CCC(ext_panid_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),                       
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_STATUS,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_status, NULL, &scan_status),
+                           read_status, NULL, &USER_DATA(scan_status)),
     BT_GATT_CCC(status_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
     BT_GATT_CHARACTERISTIC(BT_UUID_SCAN_LENGTH,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
                            BT_GATT_PERM_READ,
-                           read_length, NULL, &length),
+                           read_length, NULL, &USER_DATA(length)),
     BT_GATT_CCC(length_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -203,7 +204,7 @@ static int ext_panid_indicate() {
 }
 
 static int status_indicate(uint8_t state) {
-    scan_status = state;
+    USER_DATA(scan_status) = state;
 
     if (!status_indicate_enabled) {
 		return -EACCES;
@@ -258,10 +259,10 @@ static void add_scan_result_to_queue(otActiveScanResult *aResult, void *aContext
 
     k_queue_append(&scan_result_queue, result);
 
-    ++length;
+    ++(USER_DATA(length));
     length_indicate();
 
-    LOG_DBG("Add Result : %s, length = %d", result->mNetworkName.m8, length);
+    LOG_DBG("Add Result : %s, length = %d", result->mNetworkName.m8, USER_DATA(length));
 }
 
 static void reset_queue(struct k_work *work) {
@@ -273,11 +274,11 @@ static void reset_queue(struct k_work *work) {
         LOG_DBG("DELETE ITEM of QUEUE");
     }
 
-    length = 0;
+    USER_DATA(length) = 0;
     length_indicate();
 
     status_indicate(DONE);
-    LOG_DBG("RESET QUEUE DONE, length = %d", length);
+    LOG_DBG("RESET QUEUE DONE, length = %d", USER_DATA(length));
 }
 
 static void get_result(struct k_work *work) {
@@ -291,12 +292,13 @@ static void get_result(struct k_work *work) {
         return;
     }
 
-    --length;
+    --USER_DATA(length);
     length_indicate();
 
-    LOG_DBG("Get Result : %s, length = %d", result->mNetworkName.m8, length);
+    LOG_DBG("Get Result : %s, length = %d", result->mNetworkName.m8, USER_DATA(length));
 
-    memcpy(&current_scan_result, result, sizeof(otActiveScanResult));
+    memcpy(&USER_DATA(scan_networkname), &result->mNetworkName, sizeof(otNetworkName));
+    memcpy(&USER_DATA(scan_extpanid), &result->mExtendedPanId, sizeof(otExtendedPanId));
     k_free(result);
 
     network_name_indicate();
