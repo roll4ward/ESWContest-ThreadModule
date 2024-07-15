@@ -182,6 +182,8 @@ COMMAND_WORK_HANDLER(reset_dataset) {
     memset(&USER_DATA(networkname), 0, sizeof(otNetworkName));
     memset(&USER_DATA(networkkey), 0, sizeof(otNetworkKey));
     memset(&USER_DATA(extpanid), 0, sizeof(otExtendedPanId));
+
+    otThreadSetEnabled(openthread_get_default_instance, false);
     
     INDICATE_VALUE(commission_status, DONE);
 }
