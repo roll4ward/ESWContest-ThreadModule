@@ -2,25 +2,34 @@
 #include "zephyr/bluetooth/bluetooth.h"
 #include "zephyr/bluetooth/gap.h"
 #include <zephyr/logging/log.h>
+#include <hw_id.h>
 
-LOG_MODULE_REGISTER(bluetooth_ad, LOG_LEVEL_INF);
+#define DEVICE_NAME_BUFFER_SIZE        50U
+#define HW_ID_DISPLAY_LEN              6U
+
+LOG_MODULE_REGISTER(bluetooth_ad, LOG_LEVEL_DBG);
 
 static struct bt_le_adv_param *adv_param = BT_LE_ADV_PARAM(
 	(BT_LE_ADV_OPT_CONNECTABLE |
 	 BT_LE_ADV_OPT_USE_IDENTITY), /* Connectable advertising and use identity address */
-	BT_GAP_ADV_FAST_INT_MIN_1, /* 0x30 units, 48 units, 30ms */
-	BT_GAP_ADV_FAST_INT_MAX_1, /* 0x60 units, 96 units, 60ms */
+	0x0500, // 500 ms
+	0x0600, // 800 ms
 	NULL); /* Set to NULL for undirected advertising */
+
 
 
 static struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR | BT_LE_AD_GENERAL),
-    BT_DATA(BT_DATA_NAME_COMPLETE, "Roll4ward", 9),
 };
 
+static char device_name[DEVICE_NAME_BUFFER_SIZE] = "Roll4 Network Module";
+
 static struct bt_data sd[] = {
-    BT_DATA(BT_DATA_NAME_SHORTENED, "Roll4", 5),
+    {.type = BT_DATA_NAME_COMPLETE,
+     .data = device_name}
 };
+
+static void set_device_name_adv();
 
 int start_bt_advertise() {
     if(!bt_is_ready()) {
@@ -31,8 +40,27 @@ int start_bt_advertise() {
         }
         LOG_INF("Bluetooth Enabled");
     }
+    set_device_name_adv();
 
     return bt_le_adv_start(adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));   
+}
+
+static void set_device_name_adv() {
+    char hw_id[HW_ID_LEN];
+    int res;
+
+    res = hw_id_get(hw_id, HW_ID_LEN);
+    if (res < 0) {
+        LOG_ERR("Failed to Get HW ID : %d", res);
+        return;
+    }
+
+    strcat(device_name, "-");
+    strncat(device_name, hw_id, HW_ID_DISPLAY_LEN);
+
+    sd[0].data_len = strlen(device_name);
+
+    LOG_DBG("ID : %s", hw_id);
 }
 
 int stop_bt_advertise() {
