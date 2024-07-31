@@ -13,7 +13,7 @@
 #include "ble_commissioning.h"
 #include "ble_uuid.h"
 
-LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(ble_create_network, LOG_LEVEL_INF);
 
 // User Data Section
 
@@ -123,6 +123,7 @@ COMMAND_WORK_HANDLER(create_new_network) {
         INDICATE_VALUE(commission_status, FAILED);
         return;
     }
+    LOG_INF("DONE: Init New Network Dataset");
 
     memcpy(&new_dataset.mNetworkName, &USER_DATA(networkname), sizeof(otNetworkName));
     memcpy(&USER_DATA(networkkey), &new_dataset.mNetworkKey, sizeof(otNetworkKey));
@@ -137,10 +138,13 @@ COMMAND_WORK_HANDLER(create_new_network) {
     }
 
     LOG_DBG("Done: Create New Network");
-    otThreadSetEnabled(openthread_get_default_instance(), true);
-    openthread_api_mutex_unlock(openthread_get_default_context());
 
+    otThreadSetEnabled(openthread_get_default_instance(), true);
+    LOG_DBG("DONE: Enable Thread");
+    openthread_api_mutex_unlock(openthread_get_default_context());
+    LOG_DBG("DONE : Mutex unlock");
     INDICATE_VALUE(commission_status, DONE);
+    LOG_DBG("DONE : INDICATE");
 }
 
 COMMAND_WORK_HANDLER(join_network) {
@@ -171,9 +175,11 @@ COMMAND_WORK_HANDLER(join_network) {
     LOG_DBG("Done: Join New Network");
 
     otThreadSetEnabled(openthread_get_default_instance(), true);
+    LOG_DBG("DONE: Enable Thread");
     openthread_api_mutex_unlock(openthread_get_default_context());
-
+    LOG_DBG("DONE : Mutex unlock");
     INDICATE_VALUE(commission_status, DONE);
+    LOG_DBG("DONE : INDICATE");
 }
 
 COMMAND_WORK_HANDLER(reset_dataset) {
@@ -183,14 +189,16 @@ COMMAND_WORK_HANDLER(reset_dataset) {
     memset(&USER_DATA(networkkey), 0, sizeof(otNetworkKey));
     memset(&USER_DATA(extpanid), 0, sizeof(otExtendedPanId));
 
-    otThreadSetEnabled(openthread_get_default_instance, false);
+    otThreadSetEnabled(openthread_get_default_instance(), false);
     
     INDICATE_VALUE(commission_status, DONE);
 }
 
 static void state_changed_cb(otChangedFlags flag, void *context) {
     if (flag & OT_CHANGED_THREAD_ROLE) {
+        LOG_DBG("ROLE changed");
         INDICATE_VALUE(role, otThreadGetDeviceRole(openthread_get_default_instance()));
+        LOG_DBG("ROLE indicated");
     }
 }
 
@@ -199,4 +207,5 @@ void init_ble_commission() {
         LOG_ERR("CALL BACK Register failed");
         return;
     }
+    LOG_INF("DONE : Init ble");
 }
