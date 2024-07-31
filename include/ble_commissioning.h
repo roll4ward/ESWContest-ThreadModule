@@ -44,14 +44,14 @@ static struct user_data_info _name = { \
         static void _name##_ccc_cfg_changed(const struct bt_gatt_attr *attr, \
                                             uint16_t value) { \
                 _name##_indicate_enabled = (value == BT_GATT_CCC_INDICATE);} \
-        static int _name##_indicate() {\
-            struct bt_gatt_indicate_params ind_params = {\
+        struct bt_gatt_indicate_params _name##ind_params = {\
                 .uuid = _uuid ,\
-                .data = _name.data ,\
-                .len = _name.len\
             }; \
+        static int _name##_indicate() {\
             if (!_name##_indicate_enabled) return -EACCES; \
-            return bt_gatt_indicate(NULL, &ind_params);\
+            _name##ind_params.data = _name.data;\
+            _name##ind_params.len = _name.len;\
+            return bt_gatt_indicate(NULL, &_name##ind_params);\
         }
 #define INDICATE(_name) _name##_indicate();
 #define INDICATE_VALUE(_name, _value) USER_DATA(_name) = _value; \
