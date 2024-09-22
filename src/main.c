@@ -7,8 +7,6 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 #include "bluetooth_ad.h"
 #include "bluetooth_conn.h"
-#include "action_button.h"
-#include "button_service.h"
 #include "ble_commissioning.h"
 
 int main(void)
