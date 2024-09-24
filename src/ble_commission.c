@@ -13,16 +13,18 @@
 #include "ble_commissioning.h"
 #include "ble_uuid.h"
 
-LOG_MODULE_REGISTER(ble_commission, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(ble_commission, LOG_LEVEL_DBG);
 
 // User Data Info
 USER_DATA_INFO(otNetworkKey, networkkey, OT_NETWORK_KEY_SIZE, {0});
 USER_DATA_INFO(status, commission_status, 1U, WAITING);
 USER_DATA_INFO(otDeviceRole, role, 1U, OT_DEVICE_ROLE_DISABLED);
+USER_DATA_INFO(otIp6Address, ipv6_address, sizeof(otIp6Address), {0});
 
 // Indicate Enable
 INDICATE_DEFINE(commission_status, BT_UUID_COMMISSION_STATUS);
 INDICATE_DEFINE(role, BT_UUID_COMMISSION_ROLE);
+INDICATE_DEFINE(ipv6_address, BT_UUID_COMMISSION_ML_ADDR);
 
 // Workqueue Variables
 COMMAND_WORK_DECLARE(join_network);
@@ -54,6 +56,11 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_PERM_READ,
                            read_gatt, NULL, &role),
     BT_GATT_CCC(INDICATE_CCC_CALLBACK(role), BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_ML_ADDR,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_INDICATE,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &ipv6_address),
+    BT_GATT_CCC(INDICATE_CCC_CALLBACK(ipv6_address), BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
 static ssize_t write_command(struct bt_conn *conn,
@@ -134,6 +141,12 @@ static void state_changed_cb(otChangedFlags flag, void *context) {
         INDICATE_VALUE(role, otThreadGetDeviceRole(openthread_get_default_instance()));
         LOG_DBG("ROLE indicated");
     }
+
+    if (flag & OT_CHANGED_THREAD_ML_ADDR) {
+        LOG_DBG("ML ADDR changed");
+        memcpy(&USER_DATA(ipv6_address), otThreadGetMeshLocalEid(openthread_get_default_instance()), sizeof(otIp6Address));
+        INDICATE(ipv6_address);
+    }
 }
 
 void init_ble_commission() {
@@ -141,5 +154,9 @@ void init_ble_commission() {
         LOG_ERR("CALL BACK Register failed");
         return;
     }
+
+    USER_DATA(role) = otThreadGetDeviceRole(openthread_get_default_instance());
+    memcpy(&USER_DATA(ipv6_address), otThreadGetMeshLocalEid(openthread_get_default_instance()), sizeof(otIp6Address));
+    
     LOG_INF("DONE : Init ble");
 }

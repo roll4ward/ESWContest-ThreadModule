@@ -7,13 +7,14 @@
                                             .mUriPath = #uri,\
                                             .mContext = user_data };
 
-typedef void (*UpdateHandler)(void *aUserData);
+typedef struct UserData UserData;
+typedef void (*UpdateHandler)(UserData *aUserData);
 
-typedef struct UserData {
+struct UserData {
     void *mUserData;
     size_t len;
     UpdateHandler mUpdateHandler;
-} UserData;
+};
 
-void addCoAPResource(otCoapResource aResource);
+void addCoAPResource(otCoapResource *aResource);
 #endif
