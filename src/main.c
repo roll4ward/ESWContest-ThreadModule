@@ -2,14 +2,33 @@
 #include <zephyr/net/openthread.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/drivers/gpio.h>
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 #include "bluetooth_ad.h"
-#include "bluetooth_conn.h"
 #include "ble_commissioning.h"
 #include "coap.h"
 #include "util.h"
+#include "action_button.h"
+#include "button_service.h"
+
+#define  BUTTON_NODE   DT_ALIAS(sw0)
+
+DEFINE_ACTION_BUTTON(x, BUTTON_NODE, 5000);
+
+void dv_on_long(struct k_work *work) {
+        LOG_INF("device LONG PRESSED");
+}
+
+void dv_on_short(struct k_work *work) {
+        LOG_INF("device SHORT PRESSED");
+}
+
+struct action_button_callback dv_callback = {
+        .on_long_press = dv_on_long,
+        .on_short_press = dv_on_short,
+};
 
 int value = 0;
 
@@ -31,6 +50,9 @@ int main(void)
         openthread_start(openthread_get_default_context());
         start_bt_advertise();
         init_ble_commission();
+
+        init_button_service();
+        register_button(&x, &dv_callback);
         
         LOG_INF("START: add CoAP Resource");
         addCoAPResource(&value_resource);
