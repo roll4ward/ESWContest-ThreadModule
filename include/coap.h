@@ -5,7 +5,14 @@
 
 #define DEFINE_COAP_RESOURCE(uri, user_data) otCoapResource uri##_resource = {\
                                             .mUriPath = #uri,\
-                                            .mContext = user_data };
+                                            .mContext = user_data }
+
+#define DEFINE_COAP_USER_DATA(type, value, handler) type value##_data;\
+                                               UserData value = {\
+                        .len = sizeof(type),\
+                        .mUserData = &value##_data,\
+                        .mUpdateHandler = handler }
+#define COAP_USER_DATA(value)
 
 typedef struct UserData UserData;
 typedef void (*UpdateHandler)(UserData *aUserData);

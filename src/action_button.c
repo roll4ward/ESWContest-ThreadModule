@@ -14,9 +14,8 @@ static void check_pressed_time(struct k_work *item);
 
 int init_button(struct action_button *button, struct action_button_callback *callback) {
     int ret;
-
-    k_work_init(&(button->long_press_work), callback->on_long_press);
-    k_work_init(&(button->short_press_work), callback->on_short_press);
+    if (callback->on_long_press) k_work_init(&(button->long_press_work), callback->on_long_press);
+    if (callback->on_short_press) k_work_init(&(button->short_press_work), callback->on_short_press);
     k_work_init(&(button->press_time_check_work), check_pressed_time);
 
     if(!device_is_ready(button->dt_spec.port)) return -ENOTSUP;
@@ -77,12 +76,13 @@ static void check_pressed_time(struct k_work *item) {
     for (;;) {
         int64_t time_delta = ( k_uptime_get() - start_time);
         if (time_delta > button->threshold) {  // Long Press
-            k_work_submit(&(button->long_press_work));
+            // Handler가 없을 경우 제대로된 처리 중
+            if (button->long_press_work.handler) k_work_submit(&(button->long_press_work));
             return;
         }
 
         else if (button->press_status == released) {
-            k_work_submit(&(button->short_press_work));
+            if (button->short_press_work.handler) k_work_submit(&(button->short_press_work));
             return;
         }
     }

@@ -27,11 +27,15 @@ struct action_button{
     sys_snode_t registry_node;
 };
 
-#define DEFINE_ACTION_BUTTON(name, node, time) struct action_button name = {\
+#define DEFINE_ACTION_BUTTON(name, node, time) struct action_button name = { \
     .threshold = time,\
     .dt_spec= GPIO_DT_SPEC_GET(node, gpios),\
     .press_status = released,\
-};
+    .long_press_work = {0},\
+    .short_press_work = {0}\
+}
+
+#define BUTTON_CALLBACK(name) void name(struct k_work *work)
 
 int init_button(struct action_button *button, struct action_button_callback *callback);
 #endif

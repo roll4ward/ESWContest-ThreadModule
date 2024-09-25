@@ -17,11 +17,11 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 DEFINE_ACTION_BUTTON(x, BUTTON_NODE, 5000);
 
-void dv_on_long(struct k_work *work) {
+BUTTON_CALLBACK(dv_on_long) {
         LOG_INF("device LONG PRESSED");
 }
 
-void dv_on_short(struct k_work *work) {
+BUTTON_CALLBACK(dv_on_short) {
         LOG_INF("device SHORT PRESSED");
 }
 
@@ -30,18 +30,12 @@ struct action_button_callback dv_callback = {
         .on_short_press = dv_on_short,
 };
 
-int value = 0;
-
 static void update_value(UserData *data) {
         *((int *)(data->mUserData)) += 1;
         LOG_INF("Value Updated");
 }
 
-UserData user_data = {
-        .len = sizeof(value),
-        .mUserData = &value,
-        .mUpdateHandler = update_value
-};
+DEFINE_COAP_USER_DATA(int, user_data, update_value);
 
 DEFINE_COAP_RESOURCE(value, &user_data);
 
