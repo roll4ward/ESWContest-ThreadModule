@@ -13,6 +13,7 @@ enum commission_command {
     NEW_NETWORK = 0x01,
     JOIN_NETWORK = 0x02,
     RESET_DATASET = 0x03,
+    DISABLE_BLE = 0X04,
 };
 typedef uint8_t commission_command;
 

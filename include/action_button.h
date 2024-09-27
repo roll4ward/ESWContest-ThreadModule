@@ -32,8 +32,7 @@ struct action_button{
     .dt_spec= GPIO_DT_SPEC_GET(node, gpios),\
     .press_status = released,\
     .long_press_work = {0},\
-    .short_press_work = {0}\
-}
+    .short_press_work = {0} }
 
 #define BUTTON_CALLBACK(name) void name(struct k_work *work)
 

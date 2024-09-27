@@ -1,6 +1,7 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/conn.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/kernel.h>
 
@@ -12,6 +13,7 @@
 
 #include "ble_commissioning.h"
 #include "ble_uuid.h"
+#include "bluetooth_ad.h"
 
 LOG_MODULE_REGISTER(ble_commission, LOG_LEVEL_DBG);
 
@@ -29,7 +31,9 @@ INDICATE_DEFINE(ipv6_address, BT_UUID_COMMISSION_ML_ADDR);
 // Workqueue Variables
 COMMAND_WORK_DECLARE(join_network);
 COMMAND_WORK_DECLARE(reset_dataset);
+COMMAND_WORK_DECLARE(disable_ble);
 
+static void disconnect_conn(struct bt_conn * connect, void * data);
 static ssize_t write_command(struct bt_conn *conn,
                                   const struct bt_gatt_attr *attr,
                                   const void *buf, uint16_t len,
@@ -85,6 +89,11 @@ static ssize_t write_command(struct bt_conn *conn,
             LOG_DBG("COMMAND SET : RESET");
             k_work_submit(&COMMAND_WORK_NAME(reset_dataset));
             break;
+        
+        case DISABLE_BLE:
+            LOG_DBG("COMMAND SET : DISABLE BLE");
+            k_work_submit(&COMMAND_WORK_NAME(disable_ble));
+            break;
 
         default:
             return BT_GATT_ERR(BT_ATT_ERR_NOT_SUPPORTED);
@@ -129,10 +138,21 @@ COMMAND_WORK_HANDLER(reset_dataset) {
     INDICATE_VALUE(commission_status, PROGRESSING);
 
     memset(&USER_DATA(networkkey), 0, sizeof(otNetworkKey));
-
+    memset(&USER_DATA(ipv6_address),0, sizeof(otIp6Address));
+    
     otThreadSetEnabled(openthread_get_default_instance(), false);
     
     INDICATE_VALUE(commission_status, DONE);
+}
+
+COMMAND_WORK_HANDLER(disable_ble) {
+    memset(&USER_DATA(ipv6_address),0, sizeof(otIp6Address));
+    stop_bt_advertise();
+    bt_conn_foreach(BT_CONN_TYPE_ALL, disconnect_conn, NULL);
+}
+
+static void disconnect_conn(struct bt_conn * connect, void * data) {
+    bt_conn_disconnect(connect, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
 }
 
 static void state_changed_cb(otChangedFlags flag, void *context) {
