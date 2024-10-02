@@ -6,7 +6,7 @@ async def main():
     context = await Context.create_client_context()
 
     # IPv6 주소와 6000번 포트를 사용하는 CoAP URI (실제 값으로 변경)
-    uri = "coap://[fd56:00fd:4e96:857f:2e42:bb39:8b8e:a960]:6000/value"
+    uri = "coap://[fd56:00fd:4e96:857f:a787:4fe8:9243:c262]:6000/reset"
 
     # CoAP 요청 생성 (GET 요청 가정)
     request = Message(code=GET, uri=uri)
@@ -23,8 +23,7 @@ async def main():
     except Exception as e:
         print(f'Failed to fetch resource: {e}')
     else:
-        value = struct.unpack('<i', response.payload)[0] 
-        print(f'Payload (int): {value}')
+        print(f'Payload (str): {response.payload}')
 
 if __name__ == "__main__":
     asyncio.run(main())

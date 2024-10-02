@@ -138,7 +138,6 @@ COMMAND_WORK_HANDLER(reset_dataset) {
     INDICATE_VALUE(commission_status, PROGRESSING);
 
     memset(&USER_DATA(networkkey), 0, sizeof(otNetworkKey));
-    memset(&USER_DATA(ipv6_address),0, sizeof(otIp6Address));
     
     otThreadSetEnabled(openthread_get_default_instance(), false);
     
@@ -146,7 +145,6 @@ COMMAND_WORK_HANDLER(reset_dataset) {
 }
 
 COMMAND_WORK_HANDLER(disable_ble) {
-    memset(&USER_DATA(ipv6_address),0, sizeof(otIp6Address));
     stop_bt_advertise();
     bt_conn_foreach(BT_CONN_TYPE_ALL, disconnect_conn, NULL);
 }

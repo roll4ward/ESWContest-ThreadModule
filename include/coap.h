@@ -14,7 +14,7 @@
                         .mUpdateHandler = handler }
 #define DEFINE_COAP_USER_DATA_BUFFER(type, _len, value, handler) type value##_data[_len];\
                                                UserData value = {\
-                        .len = sizeof(_len),\
+                        .len = _len,\
                         .mUserData = value##_data,\
                         .mUpdateHandler = handler }
 #define COAP_USER_DATA(value) value##_data

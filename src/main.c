@@ -4,6 +4,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/gpio.h>
 
+#include <openthread/thread.h>
+#include <openthread/ip6.h>
+
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 #include "bluetooth_ad.h"
@@ -16,7 +19,12 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 int main(void)
 {
-        openthread_start(openthread_get_default_context());
+        if(otDatasetIsCommissioned(openthread_get_default_instance())) {
+                openthread_api_mutex_lock(openthread_get_default_context());
+                otIp6SetEnabled(openthread_get_default_instance(), true);
+                otThreadSetEnabled(openthread_get_default_instance(), true);
+                openthread_api_mutex_unlock(openthread_get_default_context());
+        }
         init_ble_commission();
         init_button_service();
         init_reset_network();
