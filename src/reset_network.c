@@ -1,5 +1,7 @@
 #include "action_button.h"
+#include "button_service.h"
 #include "bluetooth_ad.h"
+#include "coap.h"
 
 #include <openthread/dataset.h>
 #include <openthread/thread.h>
@@ -29,3 +31,18 @@ BUTTON_CALLBACK(reset_thread) {
 struct action_button_callback reset_button_cb = {
     .on_long_press = reset_thread
 };
+
+K_WORK_DELAYABLE_DEFINE(reset_network_work, reset_thread);
+
+static void reset_network(UserData *aUserData) {
+    *(uint8_t *)(aUserData->mUserData) += 1;
+    k_work_schedule(&reset_network_work, K_TIMEOUT_ABS_MS(1500));
+}
+
+DEFINE_COAP_USER_DATA(uint8_t, reset_num, reset_network);
+DEFINE_COAP_RESOURCE(reset, &reset_num);
+
+void init_reset_network() {
+    register_button(&reset_button, &reset_button_cb);
+    addCoAPResource(&COAP_RESOURCE(reset));
+}

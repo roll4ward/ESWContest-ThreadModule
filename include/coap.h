@@ -13,6 +13,7 @@
                         .mUserData = &value##_data,\
                         .mUpdateHandler = handler }
 #define COAP_USER_DATA(value)
+#define COAP_RESOURCE(value) value##_resource
 
 typedef struct UserData UserData;
 typedef void (*UpdateHandler)(UserData *aUserData);

@@ -12,6 +12,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "util.h"
 #include "action_button.h"
 #include "button_service.h"
+#include "reset_network.h"
 
 static void update_value(UserData *data) {
         *((int *)(data->mUserData)) += 1;
@@ -19,20 +20,17 @@ static void update_value(UserData *data) {
 }
 
 DEFINE_COAP_USER_DATA(int, user_data, update_value);
-
 DEFINE_COAP_RESOURCE(value, &user_data);
 
-extern struct action_button reset_button;
-extern struct action_button_callback reset_button_cb;
 
 int main(void)
 {
         openthread_start(openthread_get_default_context());
-        start_bt_advertise();
         init_ble_commission();
         init_button_service();
+        init_reset_network();
 
-        register_button(&reset_button, &reset_button_cb);
+        start_bt_advertise();
         
         LOG_INF("START: add CoAP Resource");
         addCoAPResource(&value_resource);
