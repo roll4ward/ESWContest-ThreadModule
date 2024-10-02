@@ -12,7 +12,12 @@
                         .len = sizeof(type),\
                         .mUserData = &value##_data,\
                         .mUpdateHandler = handler }
-#define COAP_USER_DATA(value)
+#define DEFINE_COAP_USER_DATA_BUFFER(type, _len, value, handler) type value##_data[_len];\
+                                               UserData value = {\
+                        .len = sizeof(_len),\
+                        .mUserData = value##_data,\
+                        .mUpdateHandler = handler }
+#define COAP_USER_DATA(value) value##_data
 #define COAP_RESOURCE(value) value##_resource
 
 typedef struct UserData UserData;

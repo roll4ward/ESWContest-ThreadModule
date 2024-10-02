@@ -14,15 +14,6 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "button_service.h"
 #include "reset_network.h"
 
-static void update_value(UserData *data) {
-        *((int *)(data->mUserData)) += 1;
-        LOG_INF("Value Updated");
-}
-
-DEFINE_COAP_USER_DATA(int, user_data, update_value);
-DEFINE_COAP_RESOURCE(value, &user_data);
-
-
 int main(void)
 {
         openthread_start(openthread_get_default_context());
@@ -31,10 +22,6 @@ int main(void)
         init_reset_network();
 
         start_bt_advertise();
-        
-        LOG_INF("START: add CoAP Resource");
-        addCoAPResource(&value_resource);
-        LOG_INF("END: add CoAP Resource");
 
         LOG_INF("START: CoAP Start");
         EXPECT_NO_ERROR_OR_DO(otCoapStart(openthread_get_default_instance(), 6000), LOG_ERR("Failed to Start CoAP"));
