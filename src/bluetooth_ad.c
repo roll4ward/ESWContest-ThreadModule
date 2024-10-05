@@ -1,6 +1,8 @@
 #include "bluetooth_ad.h"
-#include "zephyr/bluetooth/bluetooth.h"
-#include "zephyr/bluetooth/gap.h"
+#include "ble_uuid.h"
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/gap.h>
+#include <zephyr/bluetooth/uuid.h>
 #include <zephyr/logging/log.h>
 #include <hw_id.h>
 
@@ -20,6 +22,7 @@ static struct bt_le_adv_param *adv_param = BT_LE_ADV_PARAM(
 
 static struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR | BT_LE_AD_GENERAL),
+    BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_COMMISSION_SERVICE_VAL),
 };
 
 static char device_name[DEVICE_NAME_BUFFER_SIZE] = "Roll4 Network Module";
