@@ -17,13 +17,6 @@ enum commission_command {
 };
 typedef uint8_t commission_command;
 
-enum scan_command {
-    SCAN = 0x01,
-    RESET_QUEUE = 0x02,
-    GET = 0x03,
-};
-typedef uint8_t scan_command;
-
 typedef struct user_data_info {
     void * data;
     size_t len;
@@ -33,6 +26,13 @@ typedef struct user_data_info {
 static _type _name##_data = _init_val; \
 static struct user_data_info _name = { \
     .data = &(_name##_data), \
+    .len = _len \
+}
+
+#define USER_DATA_INFO_STRING(_name, _len, _init_val) \
+static char _name##_data[_len] = _init_val; \
+static struct user_data_info _name = { \
+    .data = _name##_data, \
     .len = _len \
 }
 

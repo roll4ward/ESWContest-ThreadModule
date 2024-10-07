@@ -22,6 +22,8 @@ USER_DATA_INFO(otNetworkKey, networkkey, OT_NETWORK_KEY_SIZE, {0});
 USER_DATA_INFO(status, commission_status, 1U, WAITING);
 USER_DATA_INFO(otDeviceRole, role, 1U, OT_DEVICE_ROLE_DISABLED);
 USER_DATA_INFO(otIp6Address, ipv6_address, sizeof(otIp6Address), {0});
+USER_DATA_INFO_STRING(unit, 9U, "°C^%^%^%");
+USER_DATA_INFO_STRING(type, 68U, "sensor/temperature^sensor/humidity^sensor/soil_humidity^sensor/light");
 
 // Indicate Enable
 INDICATE_DEFINE(commission_status, BT_UUID_COMMISSION_STATUS);
@@ -65,6 +67,14 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_PERM_READ,
                            read_gatt, NULL, &ipv6_address),
     BT_GATT_CCC(INDICATE_CCC_CALLBACK(ipv6_address), BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_UNIT,
+                           BT_GATT_CHRC_READ,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &unit),
+    BT_GATT_CHARACTERISTIC(BT_UUID_COMMISSION_TYPE,
+                           BT_GATT_CHRC_READ,
+                           BT_GATT_PERM_READ,
+                           read_gatt, NULL, &type)
 );
 
 static ssize_t write_command(struct bt_conn *conn,
