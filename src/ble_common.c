@@ -2,7 +2,7 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(ble_thread_common, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(ble_thread_common, LOG_LEVEL_DBG);
 
 ssize_t read_gatt(struct bt_conn *conn,
                                  const struct bt_gatt_attr *attr,

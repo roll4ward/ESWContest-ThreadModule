@@ -17,6 +17,13 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "button_service.h"
 #include "reset_network.h"
 
+static void increase_number(UserData *aUserData) {
+    (*(double *)(aUserData->mUserData)) += 0.5;
+}
+
+DEFINE_COAP_USER_DATA(double, number, increase_number);
+DEFINE_COAP_RESOURCE(temp, &number);
+
 int main(void)
 {
         if(otDatasetIsCommissioned(openthread_get_default_instance())) {
@@ -25,11 +32,16 @@ int main(void)
                 otThreadSetEnabled(openthread_get_default_instance(), true);
                 openthread_api_mutex_unlock(openthread_get_default_context());
         }
+
+        else {
+                start_bt_advertise();
+        }
         init_ble_commission();
         init_button_service();
         init_reset_network();
 
-        start_bt_advertise();
+        COAP_USER_DATA(number) = 0;
+        addCoAPResource(&COAP_RESOURCE(temp));
 
         LOG_INF("START: CoAP Start");
         EXPECT_NO_ERROR_OR_DO(otCoapStart(openthread_get_default_instance(), 6000), LOG_ERR("Failed to Start CoAP"));

@@ -44,7 +44,9 @@ static struct user_data_info _name = { \
         static bool _name##_indicate_enabled = false; \
         static void _name##_ccc_cfg_changed(const struct bt_gatt_attr *attr, \
                                             uint16_t value) { \
-                _name##_indicate_enabled = (value == BT_GATT_CCC_INDICATE);} \
+                _name##_indicate_enabled = (value == BT_GATT_CCC_INDICATE);\
+                LOG_DBG("Indicate Enabled: %d", _name##_indicate_enabled);\
+                } \
         struct bt_gatt_indicate_params _name##ind_params = {\
                 .uuid = _uuid ,\
             }; \
