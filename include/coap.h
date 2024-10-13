@@ -21,7 +21,7 @@
 #define COAP_RESOURCE(value) value##_resource
 
 typedef struct UserData UserData;
-typedef void (*UpdateHandler)(UserData *aUserData);
+typedef void (*UpdateHandler)(UserData *aUserData, double value);
 
 struct UserData {
     void *mUserData;

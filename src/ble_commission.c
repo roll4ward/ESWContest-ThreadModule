@@ -22,8 +22,8 @@ USER_DATA_INFO(otNetworkKey, networkkey, OT_NETWORK_KEY_SIZE, {0});
 USER_DATA_INFO(status, commission_status, 1U, WAITING);
 USER_DATA_INFO(otDeviceRole, role, 1U, OT_DEVICE_ROLE_DISABLED);
 USER_DATA_INFO(otIp6Address, ipv6_address, sizeof(otIp6Address), {0});
-USER_DATA_INFO_STRING(unit, 5U, "times");
-USER_DATA_INFO_STRING(type, 11U, "sensor/temp");
+USER_DATA_INFO_STRING(unit, 1U, "F");
+USER_DATA_INFO_STRING(type, 13U, "actuator/temp");
 
 // Indicate Enable
 INDICATE_DEFINE(commission_status, BT_UUID_COMMISSION_STATUS);

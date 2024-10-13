@@ -17,8 +17,8 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "button_service.h"
 #include "reset_network.h"
 
-static void increase_number(UserData *aUserData) {
-    (*(double *)(aUserData->mUserData)) += 0.5;
+static void increase_number(UserData *aUserData, double value) {
+    (*(double *)(aUserData->mUserData)) = value;
 }
 
 DEFINE_COAP_USER_DATA(double, number, increase_number);
