@@ -22,19 +22,22 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 int main(void)
 {
+        init_ble_commission();
+        init_button_service();
+        init_reset_network();
+
         if(otDatasetIsCommissioned(openthread_get_default_instance())) {
                 openthread_api_mutex_lock(openthread_get_default_context());
                 otIp6SetEnabled(openthread_get_default_instance(), true);
                 otThreadSetEnabled(openthread_get_default_instance(), true);
                 openthread_api_mutex_unlock(openthread_get_default_context());
+                LOG_INF("Start Thread");
         }
 
         else {
                 start_bt_advertise();
+                LOG_INF("Start BLE");
         }
-        init_ble_commission();
-        init_button_service();
-        init_reset_network();
 
         LOG_INF("START: CoAP Start");
         EXPECT_NO_ERROR_OR_DO(otCoapStart(openthread_get_default_instance(), 6000), LOG_ERR("Failed to Start CoAP"));
