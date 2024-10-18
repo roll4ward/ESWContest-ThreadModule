@@ -25,7 +25,7 @@ static void user_data_handler(void *aContext, otMessage *aMessage, const otMessa
         case OT_COAP_CODE_GET:
             break;
         case OT_COAP_CODE_POST:
-            uint16_t read_byte = otMessageRead(aMessage, otMessageGetOffset(aMessage), &payload, sizeof(double));
+            otMessageRead(aMessage, otMessageGetOffset(aMessage), &payload, sizeof(double));
             LOG_INF("Payload : %f", payload);
             break;
         default:

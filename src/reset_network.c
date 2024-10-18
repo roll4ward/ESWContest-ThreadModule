@@ -34,7 +34,7 @@ struct action_button_callback reset_button_cb = {
 
 K_WORK_DELAYABLE_DEFINE(reset_network_work, reset_thread);
 
-static void reset_network(UserData *aUserData) {
+static void reset_network(UserData *aUserData, double value) {
     k_work_schedule(&reset_network_work, K_TIMEOUT_ABS_MS(500));
 }
 

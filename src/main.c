@@ -16,13 +16,9 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "action_button.h"
 #include "button_service.h"
 #include "reset_network.h"
-
-static void increase_number(UserData *aUserData, double value) {
-    (*(double *)(aUserData->mUserData)) = value;
-}
-
-DEFINE_COAP_USER_DATA(double, number, increase_number);
-DEFINE_COAP_RESOURCE(temp, &number);
+#include "cds.h"
+#include "soil_humidity.h"
+#include "temperature_humidity.h"
 
 int main(void)
 {
@@ -40,12 +36,18 @@ int main(void)
         init_button_service();
         init_reset_network();
 
-        COAP_USER_DATA(number) = 0;
-        addCoAPResource(&COAP_RESOURCE(temp));
-
         LOG_INF("START: CoAP Start");
         EXPECT_NO_ERROR_OR_DO(otCoapStart(openthread_get_default_instance(), 6000), LOG_ERR("Failed to Start CoAP"));
         LOG_INF("END: CoAP Start");
 
+        EXPECT_NO_ERROR_OR_DO(init_cds(), LOG_ERR("Failed to start cds"));
+        LOG_INF("END: CDS Start");
+        EXPECT_NO_ERROR_OR_DO(init_soil_humidity(), LOG_ERR("Failed to start soil_humidity"));
+        LOG_INF("END: SoilHumidity Start");
+
+        addCoAPResource(get_soil_humidity_resource());
+        addCoAPResource(get_cds_resource());
+        addCoAPResource(get_temperature_resource());
+        addCoAPResource(get_humidity_resource());
         return 0;
 }
