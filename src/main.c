@@ -48,9 +48,12 @@ int main(void)
         EXPECT_NO_ERROR_OR_DO(init_soil_humidity(), LOG_ERR("Failed to start soil_humidity"));
         LOG_INF("END: SoilHumidity Start");
 
+        #ifdef CONFIG_ROLL4_SENSOR
         addCoAPResource(get_soil_humidity_resource());
         addCoAPResource(get_cds_resource());
         addCoAPResource(get_temperature_resource());
         addCoAPResource(get_humidity_resource());
+        #endif
+        
         return 0;
 }

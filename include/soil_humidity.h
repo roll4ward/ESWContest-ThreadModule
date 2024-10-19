@@ -1,3 +1,4 @@
+#ifdef CONFIG_ROLL4_SENSOR
 #ifndef ROLL4_SOIL_HUMIDITY_H
 #define ROLL4_SOIL_HUMIDITY_H
 
@@ -6,4 +7,5 @@
 int init_soil_humidity();
 double get_soil_humidity_value();
 otCoapResource *get_soil_humidity_resource();
+#endif
 #endif
