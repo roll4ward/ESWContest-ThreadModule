@@ -55,12 +55,9 @@ int main(void)
         addCoAPResource(get_temperature_resource());
         addCoAPResource(get_humidity_resource());
         #endif
-        double value = 0.0;
-        for (;;) {
-                set_pump_value(value);
-                value = value >= 100.0 ? 0.0 : value + 1.0;
-                k_sleep(K_MSEC(100));
-        }
+        #ifdef CONFIG_ROLL4_PUMP
+        addCoAPResource(get_pump_resource());
+        #endif
         
         return 0;
 }
