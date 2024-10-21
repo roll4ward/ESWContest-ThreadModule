@@ -1,9 +1,12 @@
 source "Kconfig.zephyr"
 
+choice ROLL4_DEVICE_TYPE
+	bool "Device Type"
+	default ROLL4_SENSOR
+
 config ROLL4_SENSOR
 	bool "Enable Sensor Mode"
-	default n
     
 config ROLL4_PUMP
 	bool "Enable pump Mode"
-	default n
+endchoice

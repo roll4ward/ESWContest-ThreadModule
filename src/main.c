@@ -19,6 +19,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #include "cds.h"
 #include "soil_humidity.h"
 #include "temperature_humidity.h"
+#include "pump.h"
 
 int main(void)
 {
@@ -43,17 +44,23 @@ int main(void)
         EXPECT_NO_ERROR_OR_DO(otCoapStart(openthread_get_default_instance(), 6000), LOG_ERR("Failed to Start CoAP"));
         LOG_INF("END: CoAP Start");
 
+        #ifdef CONFIG_ROLL4_SENSOR
         EXPECT_NO_ERROR_OR_DO(init_cds(), LOG_ERR("Failed to start cds"));
         LOG_INF("END: CDS Start");
         EXPECT_NO_ERROR_OR_DO(init_soil_humidity(), LOG_ERR("Failed to start soil_humidity"));
         LOG_INF("END: SoilHumidity Start");
 
-        #ifdef CONFIG_ROLL4_SENSOR
         addCoAPResource(get_soil_humidity_resource());
         addCoAPResource(get_cds_resource());
         addCoAPResource(get_temperature_resource());
         addCoAPResource(get_humidity_resource());
         #endif
+        double value = 0.0;
+        for (;;) {
+                set_pump_value(value);
+                value = value >= 100.0 ? 0.0 : value + 1.0;
+                k_sleep(K_MSEC(100));
+        }
         
         return 0;
 }
