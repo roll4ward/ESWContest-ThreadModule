@@ -57,6 +57,7 @@ int main(void)
         #endif
         #ifdef CONFIG_ROLL4_PUMP
         addCoAPResource(get_pump_resource());
+        set_pump_value(0.0);
         #endif
         
         return 0;
