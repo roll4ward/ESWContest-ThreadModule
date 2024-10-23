@@ -11,7 +11,7 @@ static void user_data_handler(void *aContext, otMessage *aMessage, const otMessa
     otMessage *responseMessage = NULL;
 
     otCoapCode code = otCoapMessageGetCode(aMessage);
-    double payload = 0.0;
+    double payload = *(double *)data->mUserData;
 
     responseMessage = otCoapNewMessage(openthread_get_default_instance(), NULL);
     EXPECT_OR_EXIT(responseMessage != NULL);
