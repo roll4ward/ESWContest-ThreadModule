@@ -51,6 +51,10 @@ int init_cds(){
 
 double get_cds_value() {
     int err;
+    int32_t mV;
+    int32_t R_cds;
+
+    double lux_value;
 
     err = adc_read(adc_channel.dev, &sequence);
 	if (err < 0) {
@@ -58,5 +62,15 @@ double get_cds_value() {
 		return -1.0;
 	}
 
-    return round((double) (1.0 - (int)buf / 4096.0 ) * 100.0 * 100.0) / 100.0;
+    err = adc_raw_to_millivolts_dt(&adc_channel, &mV);
+    if (err < 0) {
+		LOG_ERR("Could not convert to millivolts (%d)", err);
+		return -1.0;
+	}
+
+    R_cds = 10000 * (adc_ref_internal(adc_channel.dev) - mV) / mV;
+
+    lux_value = 10.0 * pow(35.0 / R_cds, 0.7);
+
+    return round(lux_value * 100.0 * 100.0) / 100.0;
 }

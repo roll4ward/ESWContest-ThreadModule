@@ -23,7 +23,7 @@ USER_DATA_INFO(status, commission_status, 1U, WAITING);
 USER_DATA_INFO(otDeviceRole, role, 1U, OT_DEVICE_ROLE_DISABLED);
 USER_DATA_INFO(otIp6Address, ipv6_address, sizeof(otIp6Address), {0});
 #ifdef CONFIG_ROLL4_SENSOR
-USER_DATA_INFO_STRING(unit, 9U, "°C^%^%^%");
+USER_DATA_INFO_STRING(unit, 11U, "°C^%^%^lux");
 USER_DATA_INFO_STRING(type, 68U, "sensor/temperature^sensor/humidity^sensor/soil_humidity^sensor/light");
 #endif
 #ifdef CONFIG_ROLL4_PUMP
