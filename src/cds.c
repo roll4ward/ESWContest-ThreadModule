@@ -69,7 +69,7 @@ double get_cds_value() {
     }
 
     R_cds = 10.0 * (ratio) / (1.0 - ratio);
-    lux_value = 10.0 * pow(R_cds / 20.0, 0.7);
+    lux_value = 10.0 * pow(50.0 / R_cds, 0.7);
 
     return round(lux_value * 100) / 100;
 }
