@@ -61,15 +61,15 @@ double get_cds_value() {
 		return -1.0;
 	}
 
-    ratio = (1.0 - (int)buf / 4096.0);
+    ratio = (int)buf / 4096.0;
 
     if (ratio == 0) {
         LOG_ERR("ADC value is zero");
         return -1.0;
     }
 
-    R_cds = 10.0 * (1.0 - ratio) / (ratio);
-    lux_value = 10.0 * pow(50.0 / R_cds, 0.7);
+    R_cds = 10.0 * (ratio) / (1.0 - ratio);
+    lux_value = 10.0 * pow(R_cds / 20.0, 0.7);
 
     return round(lux_value * 100) / 100;
 }
